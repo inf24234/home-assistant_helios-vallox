@@ -6,8 +6,13 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from .constants import DOMAIN, SWITCH_ENTITIES, SOFTBOOST_SWITCH_ENTITIES
-from .device_info import build_device_info, build_entity_id
+from .constants import (
+    DOMAIN,
+    SWITCH_ENTITIES,
+    SOFTBOOST_SWITCH_ENTITIES,
+    filter_entities_for_model,
+)
+from .device_info import build_device_info, build_entity_id, get_device_model
 
 
 _LOGGER = logging.getLogger("helios_vallox.switch")
@@ -19,15 +24,16 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
+    model = get_device_model(entry)
     entities = [
         HeliosSwitch(coordinator, entry, switch_def)
-        for switch_def in SWITCH_ENTITIES
+        for switch_def in filter_entities_for_model(SWITCH_ENTITIES, model)
     ]
     # Per-device Softboost switches.
     # These do not write directly to the ventilation unit.
     entities.extend(
         HeliosSoftBoostSwitch(coordinator, entry, switch_def)
-        for switch_def in SOFTBOOST_SWITCH_ENTITIES
+        for switch_def in filter_entities_for_model(SOFTBOOST_SWITCH_ENTITIES, model)
     )
     async_add_entities(entities)
 

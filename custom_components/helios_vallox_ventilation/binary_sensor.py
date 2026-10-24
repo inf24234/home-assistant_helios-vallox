@@ -18,8 +18,9 @@ from .constants import (
     DOMAIN,
     INTERNAL_BINARY_SENSOR_KEYS,
     SOFTBOOST_BINARY_SENSOR_ENTITIES,
+    filter_entities_for_model,
 )
-from .device_info import build_device_info, build_entity_id
+from .device_info import build_device_info, build_entity_id, get_device_model
 
 _LOGGER = logging.getLogger("helios_vallox.binary_sensor")
 
@@ -34,6 +35,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
+    model = get_device_model(entry)
 
     entities = [
         HeliosConnectionBinarySensor(coordinator, entry),
@@ -41,7 +43,7 @@ async def async_setup_entry(
 
     entities.extend(
         HeliosBinarySensor(coordinator, entry, sensor_def)
-        for sensor_def in BINARY_SENSOR_ENTITIES
+        for sensor_def in filter_entities_for_model(BINARY_SENSOR_ENTITIES, model)
         if sensor_def["key"] not in INTERNAL_BINARY_SENSOR_KEYS
     )
 

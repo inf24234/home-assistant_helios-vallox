@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import (
 from homeassistant.util import dt as dt_util
 
 from .api import HeliosBase
+from .constants import CONF_DEVICE_MODEL, CUSTOM_MODEL, MODEL_VALLOX_DIGIT_SE
 
 
 _LOGGER = logging.getLogger("helios_vallox.coordinator")
@@ -105,6 +106,9 @@ class HeliosCoordinator:
         self._hass = hass
         self._config_entry = config_entry
         self._connection = connection
+        self._model = str(
+            (config_data or {}).get(CONF_DEVICE_MODEL) or CUSTOM_MODEL
+        )
         self._capabilities = {"co2": False, "rh": False}
 
         self._helios = HeliosBase(
@@ -186,7 +190,7 @@ class HeliosCoordinator:
             ", ".join(unavailable_values) or "none",
         )
 
-        self._capabilities = self._detect_capabilities(data)
+        self._capabilities = self._detect_capabilities(data, self._model)
 
         _LOGGER.debug(
             "Coordinator capabilities for '%s': CO2=%s, rH=%s.",
@@ -208,18 +212,36 @@ class HeliosCoordinator:
         """Return whether the ventilation supports a capability."""
         return self._capabilities.get(capability, False)
 
+    def supports_variable(self, variable: str, writable: bool = False) -> bool:
+        """Return whether the configured device model supports a register."""
+        vardef = self._helios._registers.get(variable)
+        if vardef is None:
+            return False
+        return bool(vardef.get("write")) if writable else bool(vardef.get("read"))
+
     @staticmethod
     def _detect_capabilities(
         data: dict | None,
+        model: str = CUSTOM_MODEL,
     ) -> dict[str, bool]:
         """Detect optional hardware features from the latest read data."""
         data = data or {}
 
-        return {
-            "co2": any(
+        if model == MODEL_VALLOX_DIGIT_SE:
+            # The Digit SE has no CO2 sensor presence register (0x2D).
+            # Detect an installed CO2 sensor from a plausible reading instead:
+            # without a sensor the combined reading is 0 (or unavailable).
+            co2 = HeliosCoordinator._is_valid_co2_reading(
+                data.get("co2_concentration")
+            )
+        else:
+            co2 = any(
                 data.get(f"co2_sensor{i}_present")
                 for i in range(1, 6)
-            ),
+            )
+
+        return {
+            "co2": co2,
             "rh": any(
                 HeliosCoordinator._is_valid_rh_raw(data.get(key))
                 for key in (
@@ -228,6 +250,14 @@ class HeliosCoordinator:
                 )
             ),
         }
+
+    @staticmethod
+    def _is_valid_co2_reading(value) -> bool:
+        """Return whether a combined CO2 reading represents an installed sensor."""
+        try:
+            return 0 < int(value) <= 5000
+        except (TypeError, ValueError):
+            return False
 
     @staticmethod
     def _is_valid_rh_raw(value) -> bool:

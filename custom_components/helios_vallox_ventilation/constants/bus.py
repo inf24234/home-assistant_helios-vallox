@@ -1,5 +1,10 @@
 import array
 
+try:
+    from .config import MODEL_VALLOX_DIGIT_SE
+except ImportError:
+    from constants.config import MODEL_VALLOX_DIGIT_SE
+
 # domain
 DOMAIN = "helios_vallox_ventilation"
 # mapping for the four NTC5k temperature sensors
@@ -148,3 +153,152 @@ REGISTERS_AND_COILS = {
     # CO2 - alarm
     "co2_alarm":               {"varid": 0x6D, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
 }
+
+# Register set of the Vallox Digit SE (a.k.a. Digit SE / 130 E class).
+#
+# Based on the Digit SE protocol implementations of kotope/valloxesp
+# (valloxesp/vallox_protocol.h, Vallox.cpp, Vallox.h) and dirtyha/my-esp8266,
+# both verified with Vallox Digit SE / Digit SE 2 units.
+#
+# Differences to the Helios default table above:
+# - Only registers actually supported by the Digit SE are included. Polling a
+#   register that a unit does not implement makes every full read time out
+#   (10 retries per register), so unsupported registers must not be read.
+# - 0xA3 bit 3 is the writable heating mode (winter/summer switch on the Digit
+#   SE; valloxesp maps it to HVAC mode HEAT/FAN).
+# - 0x08 bit 1 is the summer mode status on the Digit SE (on Helios it is the
+#   bypass damper position).
+# - 0x08 bits 3 and 5 are read-only fan running statuses on the Digit SE
+#   (on Helios they are writable fan-off flags).
+# - 0xA4 is the (post-)heating target temperature, 10..27 °C.
+# - Not supported by the Digit SE (therefore not polled here):
+#   0x2D (CO2 sensor presence), 0x2E (analog input), 0x57 (post-heating target),
+#   0x6D (CO2 alarm), 0x70 (preheat status), 0xA5 (max fanspeed), 0xA7 (preheat
+#   setpoint), 0xA8 (defrost setpoint), 0xAE (basic humidity level),
+#   0xAF (bypass setpoint), 0xB0/0xB1 (fan rpm calibration), 0xB2 (defrost
+#   hysteresis), 0xB3/0xB4 (CO2 setting), 0xAA bit 4 (humidity control mode).
+DIGIT_SE_REGISTERS_AND_COILS = {
+    # Current fanspeed (Digit SE: 1..8)
+    "fanspeed":                {"varid": 0x29, 'type': 'fanspeed',    'bitposition': -1, 'read': True, 'write': True },
+    # Fanspeed after switching on
+    "initial_fanspeed":        {"varid": 0xA9, 'type': 'fanspeed',    'bitposition': -1, 'read': True, 'write': True },
+    # NTC5K sensors: outside air temperature
+    "temperature_outdoor_air": {"varid": 0x32, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
+    # NTC5K sensors: supply air temperature
+    "temperature_supply_air":  {"varid": 0x35, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
+    # NTC5K sensors: return air temperature
+    "temperature_extract_air": {"varid": 0x34, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
+    # NTC5K sensors: discharge air temperature
+    "temperature_exhaust_air": {"varid": 0x33, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
+    # various coils in register 0xA3 (0..3 read/write, 4..7 readonly)
+    # FB LED1: on/off
+    "powerstate":              {"varid": 0xA3, 'type': 'bit',         'bitposition':  0, 'read': True, 'write': True },
+    # FB LED2: CO2 warning
+    "co2_indicator":           {"varid": 0xA3, 'type': 'bit',         'bitposition':  1, 'read': True, 'write': True },
+    # FB LED3: Humidity warning
+    "rh_indicator":            {"varid": 0xA3, 'type': 'bit',         'bitposition':  2, 'read': True, 'write': True },
+    # FB LED4: heating mode on the Digit SE (1 = winter/heat recovery, 0 = summer);
+    # valloxesp maps this bit to the HVAC mode HEAT/FAN
+    "winter_mode":             {"varid": 0xA3, 'type': 'bit',         'bitposition':  3, 'read': True, 'write': True },
+    # FB icon 1: "Clean filter" warning
+    "clean_filter":            {"varid": 0xA3, 'type': 'bit',         'bitposition':  4, 'read': True, 'write': False},
+    # FB icon 2: (Post-)heating active
+    "post_heating_on":         {"varid": 0xA3, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': False},
+    # FB icon 3: Error / fault
+    "fault_detected":          {"varid": 0xA3, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
+    # FB icon 4: Service request
+    "service_requested":       {"varid": 0xA3, 'type': 'bit',         'bitposition':  7, 'read': True, 'write': False},
+    # (Post-)heating target temperature on the NTC sensor scale (10..27 °C)
+    "post_heating_setpoint":   {"varid": 0xA4, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': True },
+    # Boost mode: 0=fireplace (ignition - no exhaust air in the first 15 minutes of boost); 1=normal boost mode
+    "boost_mode":              {"varid": 0xAA, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': True },
+    # Switch boost/fireplace on (set to 1; will be reset by mainboard automatically)
+    "activate_boost":          {"varid": 0x71, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': True },
+    # Current boost/fireplace status (off/on)
+    "boost_status":            {"varid": 0x71, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
+    # Remaining minutes of boost/fireplace if on
+    "boost_remaining":         {"varid": 0x79, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
+    # I/O port 0x08: read-only status bits on the Digit SE
+    # 1 = summer mode (on Helios this bit is the bypass damper position)
+    "summer_mode":             {"varid": 0x08, 'type': 'bit',         'bitposition':  1, 'read': True, 'write': False},
+    "fault_relay":             {"varid": 0x08, 'type': 'bit',         'bitposition':  2, 'read': True, 'write': False},
+    # Fresh air ventilator running
+    "input_fan_running":       {"varid": 0x08, 'type': 'bit',         'bitposition':  3, 'read': True, 'write': False},
+    # Front heating active
+    "preheating_on":           {"varid": 0x08, 'type': 'bit',         'bitposition':  4, 'read': True, 'write': False},
+    # Exhaust air ventilator running
+    "output_fan_running":      {"varid": 0x08, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': False},
+    # External fireplace/boost switch active
+    "external_boost_switch":   {"varid": 0x08, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
+    # Service reminder interval in months (used after reset of service reminder)
+    "service_interval":        {"varid": 0xA6, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': True },
+    # Remaining months for current service reminder
+    "service_due_months":      {"varid": 0xAB, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': True },
+    # Error / fault register. 0 = no fault. see COMPONENT_FAULTS above
+    "fault_number":            {"varid": 0x36, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
+    # Humidity reading sensor 1. 33H = 0% RH FFH = 100% RH
+    "rh_sensor1_raw":          {"varid": 0x2F, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
+    # Humidity reading sensor 2. 33H = 0% RH FFH = 100% RH
+    "rh_sensor2_raw":          {"varid": 0x30, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
+    # CO2 - measurements (upper/lower byte; combined = ppm)
+    "co2_reading_upper_byte":  {"varid": 0x2B, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
+    "co2_reading_lower_byte":  {"varid": 0x2C, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
+}
+
+# Register table per device model. Models without an entry use the Helios
+# default table (REGISTERS_AND_COILS) above.
+MODEL_REGISTERS = {
+    MODEL_VALLOX_DIGIT_SE: DIGIT_SE_REGISTERS_AND_COILS,
+}
+
+# Bus addressing / write behaviour per device model.
+#
+# Default (models without a profile) is the proven Helios/SmartHomeNG behaviour:
+# reads are sent from the "_HA" address to mainboard 1; writes are broadcast to
+# all remote controls and all mainboards and finally sent directly to
+# mainboard 1 with a repeated checksum byte.
+#
+# The Vallox Digit SE expects a panel address as sender (valloxesp uses 0x22,
+# dirtyha/my-esp8266 uses panel 1 = 0x21). Writes go from the panel to all
+# mainboards, then from mainboard 1 to all panels. The status register 0xA3
+# is written to mainboard 1 only (valloxesp setStatusVariable()).
+#
+# Each write target is a tuple: (sender bus address key, receiver bus address
+# key, repeat checksum byte on the telegram).
+DEFAULT_MODEL_PROFILE = {
+    "read_sender": "_HA",
+    "read_receiver": "MB1",
+    "write_targets": (
+        ("_HA", "FB*", False),
+        ("_HA", "MB*", False),
+        ("_HA", "MB1", True),
+    ),
+}
+
+MODEL_PROFILES = {
+    MODEL_VALLOX_DIGIT_SE: {
+        "read_sender": "FB1",
+        "read_receiver": "MB1",
+        "write_targets": (
+            ("FB1", "MB*", False),
+            ("MB1", "FB*", False),
+        ),
+        # The status register 0xA3 is only sent to mainboard 1 (plus the
+        # notification to all panels), like valloxesp setStatusVariable().
+        "status_write_targets": (
+            ("FB1", "MB1", False),
+            ("MB1", "FB*", False),
+        ),
+        "status_varid": 0xA3,
+    },
+}
+
+
+def get_registers_for_model(model):
+    """Return the register table for a device model (Helios default if unknown)."""
+    return MODEL_REGISTERS.get(model, REGISTERS_AND_COILS)
+
+
+def get_model_profile(model):
+    """Return the bus profile for a device model (Helios default if unknown)."""
+    return MODEL_PROFILES.get(model, DEFAULT_MODEL_PROFILE)

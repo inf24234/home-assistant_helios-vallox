@@ -1,3 +1,27 @@
+###### Model-dependent entity filtering
+
+def filter_entities_for_model(entities, model):
+    """Return the entity definitions applicable to a device model.
+
+    - "models" restricts an entity to the listed device models.
+    - "exclude_models" hides an entity for the listed device models.
+    - "model_overrides" applies per-model value overrides (e.g. min/max).
+    """
+    result = []
+    for entity_def in entities:
+        allowed_models = entity_def.get("models")
+        if allowed_models is not None and model not in allowed_models:
+            continue
+        if model in entity_def.get("exclude_models", []):
+            continue
+        merged = dict(entity_def)
+        overrides = merged.pop("model_overrides", {}).get(model)
+        if overrides:
+            merged.update(overrides)
+        result.append(merged)
+    return result
+
+
 ###### UI / Dashboard helpers
 
 # Device selector on the remote control of the example dashboard
@@ -96,8 +120,16 @@ SOFTBOOST_BINARY_SENSOR_ENTITIES = [
     {"key": "softboost_active", "icon": "mdi:fan-clock"},
 ]
 
+try:
+    from .config import MODEL_VALLOX_DIGIT_SE as _DIGIT_SE_MODEL
+except ImportError:
+    from constants.config import MODEL_VALLOX_DIGIT_SE as _DIGIT_SE_MODEL
+
 SOFTBOOST_SWITCH_ENTITIES = [
-    {"key": "softboost_fireplace_mode", "icon": "mdi:fire"},
+    # Fireplace mode switches the exhaust fan off via register 0x08 bit 5,
+    # which is a read-only status on the Digit SE. Fireplace boost is available
+    # there through the native activate_boost switch + boost_mode select.
+    {"key": "softboost_fireplace_mode", "icon": "mdi:fire", "exclude_models": [_DIGIT_SE_MODEL]},
 ]
 
 SOFTBOOST_BUTTON_ENTITIES = [

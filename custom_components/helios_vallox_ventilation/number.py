@@ -7,7 +7,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from .device_info import build_device_info, build_entity_id
+from .device_info import build_device_info, build_entity_id, get_device_model
 from .constants import (
     DOMAIN,
     NUMBER_ENTITIES,
@@ -15,6 +15,7 @@ from .constants import (
     RH_NUMBER_KEYS,
     CO2_NUMBER_KEYS,
     SOFTBOOST_NUMBER_ENTITIES,
+    filter_entities_for_model,
 )
 
 
@@ -37,10 +38,11 @@ async def async_setup_entry(
 ) -> None:
 
     coordinator = hass.data[DOMAIN][entry.entry_id]
+    model = get_device_model(entry)
 
     entities = [
         HeliosNumber(coordinator, entry, number_def)
-        for number_def in NUMBER_ENTITIES
+        for number_def in filter_entities_for_model(NUMBER_ENTITIES, model)
         if _should_create_number(coordinator, number_def["key"])
     ]
 

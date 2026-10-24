@@ -20,6 +20,15 @@ def get_entity_prefix(entry: ConfigEntry) -> str:
     return prefix or DEFAULT_ENTITY_PREFIX
 
 
+def get_device_model(entry: ConfigEntry) -> str:
+    """Return the configured device model (CUSTOM_MODEL if not set)."""
+    model = entry.options.get(
+        CONF_DEVICE_MODEL,
+        entry.data.get(CONF_DEVICE_MODEL, CUSTOM_MODEL),
+    )
+    return str(model or CUSTOM_MODEL)
+
+
 def build_suggested_object_id(entry: ConfigEntry, entity_key: str) -> str:
     """Build a stable English object id including the configured entity prefix."""
     prefix = slugify(get_entity_prefix(entry))
@@ -36,10 +45,9 @@ def build_entity_id(entity_domain: str, entry: ConfigEntry, entity_key: str) -> 
 
 def build_device_info(entry: ConfigEntry) -> DeviceInfo:
     """Build device info for one configured ventilation unit."""
-    model = entry.data.get(CONF_DEVICE_MODEL, CUSTOM_MODEL)
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
         manufacturer="Helios/Vallox",
-        model=model,
+        model=get_device_model(entry),
         name=get_entity_prefix(entry),
     )

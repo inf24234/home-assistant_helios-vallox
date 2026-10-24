@@ -8,7 +8,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import slugify
-from .device_info import build_device_info, build_entity_id, get_entity_prefix
+from .device_info import build_device_info, build_entity_id, get_device_model, get_entity_prefix
 from .constants import (
     DOMAIN,
     SELECT_ENTITIES,
@@ -17,6 +17,7 @@ from .constants import (
     LOVELACE_DEVICE_SELECT_NAME,
     LOVELACE_DEVICE_SELECT_UNIQUE_ID,
     LOVELACE_DEVICE_SELECT_OBJECT_ID,
+    filter_entities_for_model,
 )
 
 
@@ -55,10 +56,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
+    model = get_device_model(entry)
 
     entities: list[SelectEntity] = [
         HeliosSelect(coordinator, entry, select_def)
-        for select_def in SELECT_ENTITIES
+        for select_def in filter_entities_for_model(SELECT_ENTITIES, model)
         if _should_create_select(coordinator, select_def["key"])
     ]
 

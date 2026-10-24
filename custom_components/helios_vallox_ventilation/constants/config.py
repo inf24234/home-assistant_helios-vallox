@@ -15,6 +15,11 @@ CUSTOM_MODEL = "Custom / Manual input"
 CONF_ENTITY_PREFIX = "entity_prefix"
 DEFAULT_ENTITY_PREFIX = "Ventilation"
 
+# Device model with a dedicated protocol/entity profile (see constants/bus.py).
+# The Vallox Digit SE protocol differs from the Helios default in register
+# support, bit semantics and bus addressing (panel address as sender).
+MODEL_VALLOX_DIGIT_SE = "Vallox Digit SE"
+
 # Predefined device profiles
 DEVICE_PRESETS = {
     CUSTOM_MODEL: {
@@ -23,6 +28,19 @@ DEVICE_PRESETS = {
         CONF_POWER_PER_MODE: "0,0,0,0,0,0,0,0",
         CONF_MAX_POWER: 0,
         CONF_HEATING_POWER: 0,
+        CONF_HOUSE_AREA: 0,
+        CONF_HOUSE_VOLUME: 0,
+        CONF_ISOLATION_FACTOR: 0.3,
+    },
+    # Vallox Digit SE (a.k.a. Digit SE / 130 E class).
+    # Airflow curve scaled to the published max. supply airflow of
+    # 110 l/s (396 m3/h) @ 100 Pa; power curve scaled to 0.21 kW per fan.
+    MODEL_VALLOX_DIGIT_SE: {
+        CONF_AIRFLOW_PER_MODE: "62,124,154,185,227,268,331,396",
+        CONF_MAX_AIRFLOW: 396,
+        CONF_POWER_PER_MODE: "27,41,57,77,113,170,265,420",
+        CONF_MAX_POWER: 420,
+        CONF_HEATING_POWER: 900,
         CONF_HOUSE_AREA: 0,
         CONF_HOUSE_VOLUME: 0,
         CONF_ISOLATION_FACTOR: 0.3,

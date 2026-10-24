@@ -23,19 +23,25 @@ import serialx
 
 try:
     from .constants import ( # HA
-        REGISTERS_AND_COILS,
         NTC5K_TEMPERATURES,
         BUS_ADDRESSES,
         FANSPEEDS,
-        COMPONENT_FAULTS
+        COMPONENT_FAULTS,
+        CONF_DEVICE_MODEL,
+        CUSTOM_MODEL,
+        get_registers_for_model,
+        get_model_profile,
     )
 except ImportError:
     from constants import ( # Shell / CLI for testing
-        REGISTERS_AND_COILS,
         NTC5K_TEMPERATURES,
         BUS_ADDRESSES,
         FANSPEEDS,
-        COMPONENT_FAULTS
+        COMPONENT_FAULTS,
+        CONF_DEVICE_MODEL,
+        CUSTOM_MODEL,
+        get_registers_for_model,
+        get_model_profile,
     )
 
 
@@ -88,6 +94,14 @@ class HeliosBase:
         self._lock = threading.Lock()
         self._all_values, self._cache = {}, {}
 
+        # Device model profile: register table and bus addressing/write
+        # behaviour may differ per model (e.g. Vallox Digit SE).
+        self._model = str(
+            (config_data or {}).get(CONF_DEVICE_MODEL) or CUSTOM_MODEL
+        )
+        self._registers = get_registers_for_model(self._model)
+        self._profile = get_model_profile(self._model)
+
 
     def _logDebugOrDeveloperInfo(self, message, *args):
         log_debug_or_developer_info(self.logger, message, *args)
@@ -100,9 +114,14 @@ class HeliosBase:
     def readSingleValue(self, varname):
         self._lock.acquire()
         try:
+            if varname not in self._registers:
+                self.logger.error(
+                    f"Reading stopped: '{varname}' is not supported by model '{self._model}'."
+                )
+                return {}
             if not self._connect():
                 return {}
-            self._cache.pop(REGISTERS_AND_COILS[varname]["varid"], None)
+            self._cache.pop(self._registers[varname]["varid"], None)
             value = self._performRead(varname)
             return {varname: value}
         except TransportError as e:
@@ -124,7 +143,10 @@ class HeliosBase:
                 return {}
             self._all_values, self._cache = {}, {}
             start_time = time.time()
-            for varname in REGISTERS_AND_COILS:
+            # Only poll registers supported by the configured device model.
+            # Polling unsupported registers makes every read time out and
+            # can block the whole update cycle (e.g. on the Vallox Digit SE).
+            for varname in self._registers:
                 value = self._performRead(varname)
                 self._all_values[varname] = value
             self._all_values = self._addCalculationsToReadings(self._all_values)
@@ -166,7 +188,7 @@ class HeliosBase:
             if not self._connect():
                 return False
             service_interval = self._all_values.get("service_interval")
-            current_a3 = self._cache.get(REGISTERS_AND_COILS["service_requested"]["varid"])
+            current_a3 = self._cache.get(self._registers["service_requested"]["varid"])
             if service_interval is None:
                 self.logger.error("Service reminder reset failed: missing cached service_interval.")
                 return False
@@ -176,7 +198,7 @@ class HeliosBase:
             service_interval = int(service_interval)
             current_a3 = int(current_a3)
             # Clear only bit 7 (service reminder), preserve all other A3 indicator bits.
-            new_a3 = current_a3 & ~(1 << REGISTERS_AND_COILS["service_requested"]["bitposition"])
+            new_a3 = current_a3 & ~(1 << self._registers["service_requested"]["bitposition"])
             self._logDebugOrDeveloperInfo(
                 "Resetting service reminder: service_interval=%s, A3 0x%02X -> 0x%02X",
                 service_interval,
@@ -185,19 +207,19 @@ class HeliosBase:
             )
             if not self._sendWriteSequence(
                 "service_due_months",
-                REGISTERS_AND_COILS["service_due_months"]["varid"],
+                self._registers["service_due_months"]["varid"],
                 service_interval,
             ):
                 return False
             if not self._sendWriteSequence(
                 "reset_service_reminder",
-                REGISTERS_AND_COILS["service_requested"]["varid"],
+                self._registers["service_requested"]["varid"],
                 new_a3,
             ):
                 return False
             self._all_values["service_due_months"] = service_interval
             self._all_values["service_requested"] = False
-            self._cache[REGISTERS_AND_COILS["service_requested"]["varid"]] = new_a3
+            self._cache[self._registers["service_requested"]["varid"]] = new_a3
             return True
 
         except TransportError as e:
@@ -220,11 +242,14 @@ class HeliosBase:
 
     # read from a single register, cache registers containing single bits ('coils')
     def _performRead(self, varname):
-        varid = REGISTERS_AND_COILS[varname]["varid"]
-        if REGISTERS_AND_COILS[varname]["type"] == "bit" and varid in self._cache:
+        varid = self._registers[varname]["varid"]
+        if self._registers[varname]["type"] == "bit" and varid in self._cache:
             return self._convertFromRaw(varname, self._cache[varid])
         try:
-            sender, receiver = BUS_ADDRESSES["_HA"], BUS_ADDRESSES["MB1"]
+            # The sender address is model-dependent (the Vallox Digit SE
+            # expects a panel address, Helios units accept the _HA address).
+            sender = BUS_ADDRESSES[self._profile["read_sender"]]
+            receiver = BUS_ADDRESSES[self._profile["read_receiver"]]
             retry_count, max_retries = 0, 10
             while retry_count < max_retries:
                 # _sendTelegram() is the only place responsible for bus-silence.
@@ -234,7 +259,7 @@ class HeliosBase:
                     continue
                 value = self._receiveTelegram(receiver, sender, varid)  # read response
                 if value is not None:
-                    if REGISTERS_AND_COILS[varname]["type"] == "bit":
+                    if self._registers[varname]["type"] == "bit":
                         self._cache[varid] = value
                     if retry_count > 1:  # log multiple re-reads (a single one is ok)
                         self._logDebugOrDeveloperInfo(f"Retries for {varname}: {retry_count}.")
@@ -287,16 +312,8 @@ class HeliosBase:
 
 
         # Humidity sensor conversions (raw byte to %); add a max sensor
-        try:
-            rh1_raw = int(all_values.get("rh_sensor1_raw"))
-            all_values["rh_sensor1"] = int((rh1_raw - 51) / 2.04)
-        except (TypeError, ValueError):
-            all_values["rh_sensor1"] = None
-        try:
-            rh2_raw = int(all_values.get("rh_sensor2_raw"))
-            all_values["rh_sensor2"] = int((rh2_raw - 51) / 2.04)
-        except (TypeError, ValueError):
-            all_values["rh_sensor2"] = None
+        all_values["rh_sensor1"] = self._rh_raw_to_percent(all_values.get("rh_sensor1_raw"))
+        all_values["rh_sensor2"] = self._rh_raw_to_percent(all_values.get("rh_sensor2_raw"))
         rh_values = [
             value
             for value in (
@@ -388,7 +405,7 @@ class HeliosBase:
     def _performWrite(self, varname, value):
         try:
             # preparations
-            vardef = REGISTERS_AND_COILS[varname]
+            vardef = self._registers[varname]
             if vardef["type"] == "bit":
                 currentval = self._cache.get(vardef["varid"])
             else:
@@ -428,23 +445,29 @@ class HeliosBase:
             return False
 
 
-    # send write sequence like the old, proven SmartHomeNG plugin:
-    # 1) broadcast to all remote controls
-    # 2) broadcast to all mainboards
-    # 3) write directly to mainboard 1
+    # send the write sequence defined by the device model profile:
+    # Helios default (like the old, proven SmartHomeNG plugin):
+    #   1) broadcast to all remote controls
+    #   2) broadcast to all mainboards
+    #   3) write directly to mainboard 1 (with repeated checksum byte)
+    # Vallox Digit SE (like kotope/valloxesp and dirtyha/my-esp8266):
+    #   1) from the panel address to all mainboards
+    #   2) from mainboard 1 to all panels
+    # The status register 0xA3 is written to mainboard 1 only on the Digit SE.
     def _sendWriteSequence(self, varname, register, rawvalue):
-        sender = BUS_ADDRESSES["_HA"]
-        write_targets = (
-            ("FB*", BUS_ADDRESSES["FB*"], False),
-            ("MB*", BUS_ADDRESSES["MB*"], False),
-            ("MB1", BUS_ADDRESSES["MB1"], True),
-        )
+        write_targets = self._profile["write_targets"]
+        status_varid = self._profile.get("status_varid")
+        if status_varid is not None and register == status_varid:
+            write_targets = self._profile["status_write_targets"]
 
-        for target_name, receiver, repeat_checksum in write_targets:
+        for sender_key, receiver_key, repeat_checksum in write_targets:
+            sender = BUS_ADDRESSES[sender_key]
+            receiver = BUS_ADDRESSES[receiver_key]
             self._logDebugOrDeveloperInfo(
-                "Sending %s to %s: register=0x%02X, raw=0x%02X",
+                "Sending %s from %s to %s: register=0x%02X, raw=0x%02X",
                 varname,
-                target_name,
+                sender_key,
+                receiver_key,
                 register,
                 rawvalue,
             )
@@ -459,7 +482,7 @@ class HeliosBase:
                 self.logger.error(
                     "Writing failed for '%s': no free RS485 slot available while sending to %s.",
                     varname,
-                    target_name,
+                    receiver_key,
                 )
                 return False
 
@@ -564,9 +587,24 @@ class HeliosBase:
         return gotSlot
 
 
+    @staticmethod
+    def _rh_raw_to_percent(rawvalue):
+        """Convert a raw humidity byte to % (0x33 = 0% RH, 0xFF = 100% RH).
+
+        Raw values below 0x33 mean 'no sensor installed' (same validity range
+        as the rH capability detection; valloxesp returns NOT_SET for them).
+        """
+        try:
+            rawvalue = int(rawvalue)
+        except (TypeError, ValueError):
+            return None
+        if rawvalue < 0x33:
+            return None
+        return max(0, min(100, int((rawvalue - 51) / 2.04)))
+
     # return entity value from a raw int received from the bus
     def _convertFromRaw(self, varname, rawvalue):
-        vardef = REGISTERS_AND_COILS[varname]
+        vardef = self._registers[varname]
         conversion_map = {
             "temperature": lambda v: int(NTC5K_TEMPERATURES[v]),
             "fanspeed": lambda v: int(FANSPEEDS.get(v, 1)),
@@ -579,7 +617,7 @@ class HeliosBase:
 
     # return a raw value from int/bool for writing to the bus
     def _convertToRaw(self, varname, value, currentval):
-        vardef = REGISTERS_AND_COILS[varname]
+        vardef = self._registers[varname]
         conversion_map = {
             "temperature": lambda v: int(NTC5K_TEMPERATURES.index(int(v))),
             "fanspeed": lambda v: int({v: k for k, v in FANSPEEDS.items()}.get(int(v), 0)),
@@ -699,24 +737,26 @@ class HeliosBase:
 
     # Plausibility checks before writing to the bus
     def _validateBeforeWrite(self, varname, value, min_value=None, max_value=None):
-        # Check for valid variable name
-        if REGISTERS_AND_COILS.get(varname) is None:
-            self.logger.error(f"Writing stopped: Invalid variable '{varname}'.")
+        # Check for valid variable name (for the configured device model)
+        if self._registers.get(varname) is None:
+            self.logger.error(
+                f"Writing stopped: Invalid variable '{varname}' for model '{self._model}'."
+            )
             return False
 
         # Prevent writing to register 06h (may cause irrepairable damage)
-        if REGISTERS_AND_COILS[varname]["varid"] == 0x06:
+        if self._registers[varname]["varid"] == 0x06:
             self.logger.critical("Writing stopped: 06h writes are prohibited.")
             return False
 
         # Prevent writing read-only variables
-        if REGISTERS_AND_COILS[varname]["write"] != True:
+        if self._registers[varname]["write"] != True:
             self.logger.error(f"Writing stopped: '{varname}' is read-only.")
             return False
 
         # Make sure value is int or bool
         if not isinstance(value, (int, bool)):
-            if REGISTERS_AND_COILS[varname]["type"] == "bit":
+            if self._registers[varname]["type"] == "bit":
                 if value in ['1', True, 'True', 'true', 'On', 'on', 'ON'] or \
                 value in ['0', False, 'False', 'false', 'Off', 'off', 'OFF']:
                     self.logger.debug(f"Valid bool '{value}' detected.")
@@ -728,7 +768,7 @@ class HeliosBase:
                 return False
 
         # Check if value is within allowed limits
-        if REGISTERS_AND_COILS[varname]["type"] != "bit" and min_value is not None and max_value is not None:
+        if self._registers[varname]["type"] != "bit" and min_value is not None and max_value is not None:
             min_value = int(min_value)
             max_value = int(max_value)
             self.logger.debug(f"Validating '{varname}': value={value}, min={min_value}, max={max_value}")
@@ -780,13 +820,23 @@ def main():
         metavar=("varname", "value"),
         help="Variable name and value to write",
     )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Device model (e.g. 'Vallox Digit SE') to select the model-specific register table",
+    )
 
     args = parser.parse_args()
 
+    config_data = {}
+    if args.model:
+        config_data[CONF_DEVICE_MODEL] = args.model
+
     if args.connection:
-        helios = HeliosBase(connection=args.connection)
+        helios = HeliosBase(connection=args.connection, config_data=config_data)
     elif args.ip is not None and args.port is not None:
-        helios = HeliosBase(ip=args.ip, port=args.port)
+        helios = HeliosBase(ip=args.ip, port=args.port, config_data=config_data)
     else:
         parser.error(
             "Either --connection or both --ip and --port must be specified."
@@ -802,7 +852,7 @@ def main():
 
     elif args.write:
         varname, value = args.write
-        vardef = REGISTERS_AND_COILS.get(varname)
+        vardef = helios._registers.get(varname)
 
         if vardef is not None:
             if (

@@ -65,6 +65,34 @@ _(the 130D requires changing a few register numbers due to different addresses; 
 _`Vallox 150/270 SE`, `Vallox Digit SE2` (likely there are more models)<br/>
 (Please report back if you got it working on one of these models, thanks in advance!)_
 
+### Vallox Digit SE (dedicated device profile)
+
+This fork adds an explicit **Vallox Digit SE** device model (selectable in the
+config flow). The Digit SE protocol differs from the Helios default, so when
+this model is selected the integration:
+
+- only polls registers actually supported by the Digit SE (polling unsupported
+  registers would otherwise stall every update cycle with read timeouts),
+- only creates the entities the Digit SE supports,
+- sends reads and writes from a panel bus address (`0x21`), like the verified
+  Digit SE implementations [valloxesp](https://github.com/kotope/valloxesp)
+  and [dirtyha/my-esp8266](https://github.com/dirtyha/my-esp8266),
+- uses the Digit SE write sequence (panel → all mainboards, then mainboard 1 →
+  all panels; the status register `0xA3` is written to mainboard 1 only),
+- maps the Digit SE bit semantics correctly: `0xA3` bit 3 is the writable
+  heating mode (winter/summer), `0x08` bit 1 is the summer mode status and
+  `0x08` bits 3/5 are the read-only supply/extract fan running statuses,
+- detects an installed CO2 sensor from the CO2 reading (the Digit SE has no
+  CO2 sensor presence register `0x2D`).
+
+Not available on the Digit SE (therefore hidden): max fanspeed, bypass/preheat/
+defrost setpoints, defrost hysteresis, fan rpm calibration, analog input,
+CO2 setting/alarm, CO2 sensor presence, basic humidity level, humidity control
+mode, effective airflow / electrical power (they need the fan rpm registers)
+and the Softboost fireplace mode (the exhaust fan cannot be switched off via
+the bus; use the native `activate_boost` switch + `boost_mode` select for the
+fireplace function instead).
+
 ## ⚙️ Compatible / tested ser2net adapters
 
 A list of tested RS485-to-LAN/WiFi adapters can be found [here](https://github.com/Tom-Bom-badil/home-assistant_helios-vallox/wiki/Appendix-1-%E2%80%90-Tested-adaptors) on the Wiki.

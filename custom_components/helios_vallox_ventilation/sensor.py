@@ -8,7 +8,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
-from .device_info import build_device_info, build_entity_id
+from .device_info import build_device_info, build_entity_id, get_device_model
 from .constants import (
     DOMAIN,
     SENSOR_ENTITIES,
@@ -28,6 +28,7 @@ from .constants import (
     CONF_POWER_PER_MODE,
     CUSTOM_MODEL,
     DEFAULT_ENTITY_PREFIX,
+    filter_entities_for_model,
 )
 
 
@@ -41,9 +42,10 @@ async def async_setup_entry(
 ) -> None:
 
     coordinator = hass.data[DOMAIN][entry.entry_id]
+    model = get_device_model(entry)
     entities = [
         HeliosSensor(coordinator, entry, sensor_def)
-        for sensor_def in SENSOR_ENTITIES
+        for sensor_def in filter_entities_for_model(SENSOR_ENTITIES, model)
         if _should_create_sensor(coordinator, sensor_def["key"])
     ]
     entities.append(HeliosConfigurationSensor(entry))

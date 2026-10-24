@@ -5,6 +5,12 @@ from .bus import (
     FANSPEEDS,
     COMPONENT_FAULTS,
     REGISTERS_AND_COILS,
+    DIGIT_SE_REGISTERS_AND_COILS,
+    MODEL_REGISTERS,
+    MODEL_PROFILES,
+    DEFAULT_MODEL_PROFILE,
+    get_registers_for_model,
+    get_model_profile,
 )
 
 from .config import (
@@ -19,6 +25,7 @@ from .config import (
     CONF_HEATING_POWER,
     CONF_DEVICE_MODEL,
     CUSTOM_MODEL,
+    MODEL_VALLOX_DIGIT_SE,
     DEVICE_PRESETS,
     CONF_ENTITY_PREFIX,
     DEFAULT_ENTITY_PREFIX,
@@ -31,6 +38,7 @@ from .entities import (
     SELECT_ENTITIES,
 )
 from .helpers import (
+    filter_entities_for_model,
     LOVELACE_DEVICE_SELECT_KEY,
     LOVELACE_DEVICE_SELECT_NAME,
     LOVELACE_DEVICE_SELECT_UNIQUE_ID,
