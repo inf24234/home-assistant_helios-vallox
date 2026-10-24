@@ -98,14 +98,19 @@ defrost setpoints, defrost hysteresis, fan rpm calibration, analog input,
 CO2 setting/alarm, CO2 sensor presence, basic humidity level, humidity control
 mode, a second humidity sensor, effective airflow / electrical power (they
 need the fan rpm registers), the fault number register `0x36` (Helios only;
-the fault state itself is shown via `fault_detected`) and pre-heating status
-(the Digit SE has no front heating module). The supply/extract fan running
-sensors are shown as **derived** values (unit powered on + fan speed >= 1),
-because the Digit SE does not report a motor running status in register
-`0x08` (bits 3/5 stay 0 even while both fans are running). Softboost
-fireplace mode is hidden (the exhaust fan cannot be switched off via the
-bus; use the native `activate_boost` switch + `boost_mode` select for the
-fireplace function instead).
+the fault state itself is shown via `fault_detected`), pre-heating status
+(the Digit SE has no front heating module) and the post-heating status /
+target (the Digit SE profile assumes no post-heater is installed: `0xA3`
+bit 5 reads 1 statically and `0xA4` reads `0xFF`, both meaningless without
+a heater - if you retrofit a post-heater, re-enable `post_heating_on` and
+`post_heating_setpoint` in `constants/entities.py`, the Digit SE hex-level
+encoding in register `0xA4` is already implemented). The supply/extract
+fan running sensors are shown as **derived** values (unit powered on +
+fan speed >= 1), because the Digit SE does not report a motor running
+status in register `0x08` (bits 3/5 stay 0 even while both fans are
+running). Softboost fireplace mode is hidden (the exhaust fan cannot be
+switched off via the bus; use the native `activate_boost` switch +
+`boost_mode` select for the fireplace function instead).
 
 ## ⚙️ Compatible / tested ser2net adapters
 

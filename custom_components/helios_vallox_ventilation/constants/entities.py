@@ -56,7 +56,9 @@ BINARY_SENSOR_ENTITIES = [
     {"key": "fault_detected", "device_class": "problem", "icon": "mdi:alert"},
     {"key": "clean_filter", "device_class": "problem", "icon": "mdi:alert"},
     {"key": "service_requested", "device_class": "problem", "icon": "mdi:alert"},
-    {"key": "post_heating_on", "device_class": None, "icon": "mdi:heating-coil"},
+    # Digit SE without a retrofitted post-heater: 0xA3 bit 5 reads 1
+    # statically and means nothing (no heater installed -> not heating)
+    {"key": "post_heating_on", "device_class": None, "icon": "mdi:heating-coil", "exclude_models": [_DIGIT_SE]},
     {"key": "bypass_damper_position", "device_class": None, "icon": "mdi:valve", "exclude_models": [_DIGIT_SE]},
     # On the Digit SE, register 0x08 bit 1 is the summer mode status
     # (valloxesp VX_08_FLAG_SUMMER_MODE; on Helios bit 1 is the bypass
@@ -87,11 +89,12 @@ NUMBER_ENTITIES = [
     {"key": "max_fanspeed", "unit": None, "min": 1, "max": 8, "step": 1, "mode": "slider", "icon": "mdi:speedometer", "description": "Maximum fan speed available to remotes", "factory_setting": 8, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "bypass_setpoint", "unit": "°C", "min": 0, "max": 25, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Temperature difference for bypass activation", "factory_setting": 10, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "preheat_setpoint", "unit": "°C", "min": -10, "max": 10, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Pre-heating activation temperature", "factory_setting": -3, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
-    # The Digit SE heating target (register 0xA4) uses 8 discrete hex levels
-    # of 10..27 °C (dirtyha/my-esp8266 hex2HtCel); entered values are
-    # quantized to the nearest lower level on write.
-    {"key": "post_heating_setpoint", "unit": "°C", "min": 10, "max": 30, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "User-configured post-heating setpoint", "factory_setting": None, "entity_category": "config",
-        "model_overrides": {_DIGIT_SE: {"max": 27, "description": "Heating target temperature (supply air), levels 10-27 C"}}},
+    # Digit SE without a retrofitted post-heater: register 0xA4 reads 0xFF
+    # statically (meaningless without a heater). The Digit SE hex-level
+    # encoding of 0xA4 stays in the register table (constants/bus.py,
+    # type "heating_target") so the entity can be re-enabled if a post-heater
+    # is retrofitted.
+    {"key": "post_heating_setpoint", "unit": "°C", "min": 10, "max": 30, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "User-configured post-heating setpoint", "factory_setting": None, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "defrost_setpoint", "unit": "°C", "min": -6, "max": 15, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Switch off input fan below this exhaust temperature", "factory_setting": 3, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "defrost_hysteresis", "unit": "°C", "min": 1, "max": 10, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Defrost + Hysteresis: Switch on intake air again", "factory_setting": 3, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "input_fan_percent", "unit": "%", "min": 65, "max": 100, "step": 1, "mode": "slider", "icon": "mdi:percent", "description": "Input fan: Percent of regular voltage", "factory_setting": 100, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
