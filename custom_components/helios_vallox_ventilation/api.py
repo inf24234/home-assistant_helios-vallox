@@ -26,6 +26,7 @@ try:
         NTC5K_TEMPERATURES,
         BUS_ADDRESSES,
         FANSPEEDS,
+        HEATING_TARGET_HEX_TO_CELSIUS,
         COMPONENT_FAULTS,
         CONF_DEVICE_MODEL,
         CUSTOM_MODEL,
@@ -37,6 +38,7 @@ except ImportError:
         NTC5K_TEMPERATURES,
         BUS_ADDRESSES,
         FANSPEEDS,
+        HEATING_TARGET_HEX_TO_CELSIUS,
         COMPONENT_FAULTS,
         CONF_DEVICE_MODEL,
         CUSTOM_MODEL,
@@ -63,6 +65,19 @@ class TransportError(Exception):
 def log_debug_or_developer_info(logger, message, *args):
     """Log developer diagnostics as DEBUG."""
     logger.debug(message, *args)
+
+
+def _heating_target_celsius_to_hex(celsius):
+    """Quantize a heating target (deg C) to the Digit SE's 8 discrete
+    hex levels of register 0xA4 (dirtyha/my-esp8266 htCel2Hex)."""
+    try:
+        celsius = int(celsius)
+    except (TypeError, ValueError):
+        return None
+    for hex_value in sorted(HEATING_TARGET_HEX_TO_CELSIUS, reverse=True):
+        if celsius >= HEATING_TARGET_HEX_TO_CELSIUS[hex_value]:
+            return hex_value
+    return None
 
 
 class HeliosBase:
@@ -607,6 +622,7 @@ class HeliosBase:
         vardef = self._registers[varname]
         conversion_map = {
             "temperature": lambda v: int(NTC5K_TEMPERATURES[v]),
+            "heating_target": lambda v: HEATING_TARGET_HEX_TO_CELSIUS.get(int(v)),
             "fanspeed": lambda v: int(FANSPEEDS.get(v, 1)),
             "bit": lambda v: bool(v >> vardef["bitposition"] & 0x01),
             "dec": lambda v: int(v // 3) if varname == "defrost_hysteresis" else int(v),
@@ -620,6 +636,7 @@ class HeliosBase:
         vardef = self._registers[varname]
         conversion_map = {
             "temperature": lambda v: int(NTC5K_TEMPERATURES.index(int(v))),
+            "heating_target": _heating_target_celsius_to_hex,
             "fanspeed": lambda v: int({v: k for k, v in FANSPEEDS.items()}.get(int(v), 0)),
             "bit": lambda v: currentval | (1 << vardef["bitposition"]) if str(v).lower() in {"true", "1", "on"}
                 else currentval & ~(1 << vardef["bitposition"]),

@@ -20,13 +20,16 @@ SENSOR_ENTITIES = [
     {"key": "temperature_exhaust_air", "unit": "°C", "device_class": "temperature", "state_class": "measurement", "icon": "mdi:thermometer"},
     {"key": "post_heating_target", "unit": "°C", "device_class": "temperature", "state_class": None, "icon": "mdi:thermometer", "exclude_models": [_DIGIT_SE]},
     {"key": "boost_remaining", "unit": "min", "device_class": "duration", "state_class": None, "icon": "mdi:fan-clock"},
-    {"key": "fault_number", "unit": None, "device_class": None, "state_class": None, "icon": "mdi:alert" },
-    {"key": "fault_text", "unit": None, "device_class": "enum", "state_class": None, "icon": "mdi:alert",
+    # Register 0x36 (fault number) is a Helios register; the Digit SE answers
+    # with garbage there. Fault state on the Digit SE comes from 0xA3 bit 6.
+    {"key": "fault_number", "unit": None, "device_class": None, "state_class": None, "icon": "mdi:alert", "exclude_models": [_DIGIT_SE] },
+    {"key": "fault_text", "unit": None, "device_class": "enum", "state_class": None, "icon": "mdi:alert", "exclude_models": [_DIGIT_SE],
         "options": ["none", "supply_air_sensor_fault", "co2_alarm", "outdoor_air_sensor_fault",
                     "exhaust_air_sensor_fault", "water_coil_frost_warning", "extract_air_sensor_fault"]},
     {"key": "analog_input", "unit": None, "device_class": None, "state_class": None, "icon": "mdi:current-dc", "entity_category": "diagnostic", "enabled_default": False, "exclude_models": [_DIGIT_SE]},
     {"key": "rh_sensor1_raw", "unit": None, "device_class": None, "state_class": None, "icon": "mdi:water-percent", "entity_category": "diagnostic", "enabled_default": False},
-    {"key": "rh_sensor2_raw", "unit": None, "device_class": None, "state_class": None, "icon": "mdi:water-percent", "entity_category": "diagnostic", "enabled_default": False},
+    # The Digit SE has a single humidity register (0x4C), no second raw sensor
+    {"key": "rh_sensor2_raw", "unit": None, "device_class": None, "state_class": None, "icon": "mdi:water-percent", "entity_category": "diagnostic", "enabled_default": False, "exclude_models": [_DIGIT_SE]},
     {"key": "highest_humidity", "unit": "%", "device_class": "humidity", "state_class": "measurement", "icon": "mdi:water-percent", "description": "Highest measured humidity"},
     {"key": "co2_reading_upper_byte", "unit": None, "device_class": None, "state_class": None, "icon": "mdi:molecule-co2", "entity_category": "diagnostic", "enabled_default": False},
     {"key": "co2_reading_lower_byte", "unit": None, "device_class": None, "state_class": None, "icon": "mdi:molecule-co2", "entity_category": "diagnostic", "enabled_default": False},
@@ -37,7 +40,8 @@ SENSOR_ENTITIES = [
     {"key": "temperature_balance", "unit": "°C", "device_class": "temperature", "state_class": "measurement", "icon": "mdi:thermometer", "description": "Difference temperature gain - temperature reduction"},
     {"key": "efficiency", "unit": "%", "device_class": None, "state_class": "measurement", "icon": "mdi:percent"},
     {"key": "rh_sensor1", "unit": "%", "device_class": "humidity", "state_class": "measurement", "icon": "mdi:water-percent", "description": "Relative humidity sensor 1" },
-    {"key": "rh_sensor2", "unit": "%", "device_class": "humidity", "state_class": "measurement", "icon": "mdi:water-percent", "description": "Relative humidity sensor 2" },
+    # The Digit SE has a single humidity register (0x4C), no second sensor
+    {"key": "rh_sensor2", "unit": "%", "device_class": "humidity", "state_class": "measurement", "icon": "mdi:water-percent", "description": "Relative humidity sensor 2", "exclude_models": [_DIGIT_SE] },
     {"key": "co2_concentration", "unit": "ppm", "device_class": "carbon_dioxide", "state_class": "measurement", "icon": "mdi:molecule-co2", "description": "CO2 concentration"},
     {"key": "din_airflow_moisture", "unit": "m³/h", "device_class": None, "state_class": None, "icon": "mdi:fan", "description": "DIN airflow for moisture protection" },
     {"key": "din_airflow_reduced", "unit": "m³/h", "device_class": None, "state_class": None, "icon": "mdi:fan", "description": "DIN airflow for reduced exchange" },
@@ -54,14 +58,13 @@ BINARY_SENSOR_ENTITIES = [
     {"key": "service_requested", "device_class": "problem", "icon": "mdi:alert"},
     {"key": "post_heating_on", "device_class": None, "icon": "mdi:heating-coil"},
     {"key": "bypass_damper_position", "device_class": None, "icon": "mdi:valve", "exclude_models": [_DIGIT_SE]},
-    # On the Digit SE, register 0x08 bit 1 is the summer mode status
+    # On the Digit SE, register 0x08 bit 0 is the summer mode status
+    # (dirtyha/my-esp8266; on Helios bit 1 is the bypass damper position)
     {"key": "summer_mode", "device_class": None, "icon": "mdi:weather-sunny", "models": [_DIGIT_SE]},
     {"key": "fault_relay", "device_class": None, "icon": "mdi:electric-switch"},
-    {"key": "preheating_on", "device_class": None, "icon": "mdi:heating-coil"},
+    # The Digit SE has no front heating (Vorheizung) module
+    {"key": "preheating_on", "device_class": None, "icon": "mdi:heating-coil", "exclude_models": [_DIGIT_SE]},
     {"key": "external_boost_switch", "device_class": None, "icon": "mdi:toggle-switch"},
-    # On the Digit SE, register 0x08 bits 3/5 are read-only fan running statuses
-    {"key": "input_fan_running", "device_class": "running", "icon": "mdi:fan", "models": [_DIGIT_SE]},
-    {"key": "output_fan_running", "device_class": "running", "icon": "mdi:fan", "models": [_DIGIT_SE]},
     {"key": "co2_sensor1_present", "device_class": "connectivity", "icon": "mdi:molecule-co2", "entity_category": "diagnostic", "enabled_default": False, "exclude_models": [_DIGIT_SE]},
     {"key": "co2_sensor2_present", "device_class": "connectivity", "icon": "mdi:molecule-co2", "entity_category": "diagnostic", "enabled_default": False, "exclude_models": [_DIGIT_SE]},
     {"key": "co2_sensor3_present", "device_class": "connectivity", "icon": "mdi:molecule-co2", "entity_category": "diagnostic", "enabled_default": False, "exclude_models": [_DIGIT_SE]},
@@ -75,9 +78,11 @@ NUMBER_ENTITIES = [
     {"key": "max_fanspeed", "unit": None, "min": 1, "max": 8, "step": 1, "mode": "slider", "icon": "mdi:speedometer", "description": "Maximum fan speed available to remotes", "factory_setting": 8, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "bypass_setpoint", "unit": "°C", "min": 0, "max": 25, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Temperature difference for bypass activation", "factory_setting": 10, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "preheat_setpoint", "unit": "°C", "min": -10, "max": 10, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Pre-heating activation temperature", "factory_setting": -3, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
-    # The Digit SE heating target (register 0xA4) is limited to 10..27 °C (valloxesp setHeatingTarget)
+    # The Digit SE heating target (register 0xA4) uses 8 discrete hex levels
+    # of 10..27 °C (dirtyha/my-esp8266 hex2HtCel); entered values are
+    # quantized to the nearest lower level on write.
     {"key": "post_heating_setpoint", "unit": "°C", "min": 10, "max": 30, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "User-configured post-heating setpoint", "factory_setting": None, "entity_category": "config",
-        "model_overrides": {_DIGIT_SE: {"max": 27, "description": "Heating target temperature (supply air)"}}},
+        "model_overrides": {_DIGIT_SE: {"max": 27, "description": "Heating target temperature (supply air), levels 10-27 C"}}},
     {"key": "defrost_setpoint", "unit": "°C", "min": -6, "max": 15, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Switch off input fan below this exhaust temperature", "factory_setting": 3, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "defrost_hysteresis", "unit": "°C", "min": 1, "max": 10, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Defrost + Hysteresis: Switch on intake air again", "factory_setting": 3, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "input_fan_percent", "unit": "%", "min": 65, "max": 100, "step": 1, "mode": "slider", "icon": "mdi:percent", "description": "Input fan: Percent of regular voltage", "factory_setting": 100, "entity_category": "config", "exclude_models": [_DIGIT_SE]},

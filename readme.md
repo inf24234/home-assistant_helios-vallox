@@ -79,18 +79,28 @@ this model is selected the integration:
   and [dirtyha/my-esp8266](https://github.com/dirtyha/my-esp8266),
 - uses the Digit SE write sequence (panel → all mainboards, then mainboard 1 →
   all panels; the status register `0xA3` is written to mainboard 1 only),
+- uses the Digit SE register map of [dirtyha/my-esp8266](https://github.com/dirtyha/my-esp8266)
+  (the original Digit SE implementation): temperatures are read from `0x58`
+  (outside), `0x5A` (extract), `0x5B` (supply) and `0x5C` (exhaust) - the
+  Helios/SE-series registers `0x32..0x35` do **not** hold the temperatures on
+  the Digit SE, humidity comes from the single register `0x4C`, and the
+  post-heating target `0xA4` is encoded as 8 discrete hex levels of
+  10/13/15/18/20/23/25/27 °C (not on the NTC sensor scale),
 - maps the Digit SE bit semantics correctly: `0xA3` bit 3 is the writable
-  heating mode (winter/summer), `0x08` bit 1 is the summer mode status and
-  `0x08` bits 3/5 are the read-only supply/extract fan running statuses,
+  heating mode (winter/summer), `0x08` bit 0 is the summer mode status,
 - detects an installed CO2 sensor from the CO2 reading (the Digit SE has no
   CO2 sensor presence register `0x2D`).
 
 Not available on the Digit SE (therefore hidden): max fanspeed, bypass/preheat/
 defrost setpoints, defrost hysteresis, fan rpm calibration, analog input,
 CO2 setting/alarm, CO2 sensor presence, basic humidity level, humidity control
-mode, effective airflow / electrical power (they need the fan rpm registers)
-and the Softboost fireplace mode (the exhaust fan cannot be switched off via
-the bus; use the native `activate_boost` switch + `boost_mode` select for the
+mode, a second humidity sensor, effective airflow / electrical power (they
+need the fan rpm registers), the fault number register `0x36` (Helios only;
+the fault state itself is shown via `fault_detected`), pre-heating status
+(the Digit SE has no front heating module), the supply/extract fan running
+statuses (the Digit SE does not report them in register `0x08`) and the
+Softboost fireplace mode (the exhaust fan cannot be switched off via the bus;
+use the native `activate_boost` switch + `boost_mode` select for the
 fireplace function instead).
 
 ## ⚙️ Compatible / tested ser2net adapters

@@ -152,8 +152,6 @@
       "fault_relay": {"name": "Fault relay closed"},
       "preheating_on": {"name": "Pre-heating active"},
       "external_boost_switch": {"name": "External fireplace/boost switch closed"},
-      "input_fan_running": {"name": "Supply fan running"},
-      "output_fan_running": {"name": "Extract fan running"},
       "co2_sensor1_present": {"name": "CO₂ sensor 1 present"},
       "co2_sensor2_present": {"name": "CO₂ sensor 2 present"},
       "co2_sensor3_present": {"name": "CO₂ sensor 3 present"},

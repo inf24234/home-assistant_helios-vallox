@@ -45,6 +45,20 @@ FANSPEEDS = {
     255: 8
 }
 
+# Vallox Digit SE post-heating target (register 0xA4) hex encoding:
+# 8 discrete levels, NOT on the NTC sensor scale.
+# See dirtyha/my-esp8266 (hex2HtCel / htCel2Hex) and valloxesp (htCel2Hex).
+HEATING_TARGET_HEX_TO_CELSIUS = {
+    0x01: 10,
+    0x03: 13,
+    0x07: 15,
+    0x0F: 18,
+    0x1F: 20,
+    0x3F: 23,
+    0x7F: 25,
+    0xFF: 27,
+}
+
 # mapping error messages / faults
 COMPONENT_FAULTS = {
     0:  'none',
@@ -182,14 +196,15 @@ DIGIT_SE_REGISTERS_AND_COILS = {
     "fanspeed":                {"varid": 0x29, 'type': 'fanspeed',    'bitposition': -1, 'read': True, 'write': True },
     # Fanspeed after switching on
     "initial_fanspeed":        {"varid": 0xA9, 'type': 'fanspeed',    'bitposition': -1, 'read': True, 'write': True },
-    # NTC5K sensors: outside air temperature
-    "temperature_outdoor_air": {"varid": 0x32, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
-    # NTC5K sensors: supply air temperature
-    "temperature_supply_air":  {"varid": 0x35, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
-    # NTC5K sensors: return air temperature
-    "temperature_extract_air": {"varid": 0x34, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
-    # NTC5K sensors: discharge air temperature
-    "temperature_exhaust_air": {"varid": 0x33, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
+    # NTC5K sensors. Digit SE register map per dirtyha/my-esp8266 (the
+    # registers 0x32..0x35 used by Helios / the SE series do NOT hold the
+    # temperatures on the Digit SE - they answer with garbage there):
+    # 0x58 = outside air, 0x5A = inside (extract) air,
+    # 0x5B = incoming (supply) air, 0x5C = exhaust air
+    "temperature_outdoor_air": {"varid": 0x58, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
+    "temperature_supply_air":  {"varid": 0x5B, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
+    "temperature_extract_air": {"varid": 0x5A, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
+    "temperature_exhaust_air": {"varid": 0x5C, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': False},
     # various coils in register 0xA3 (0..3 read/write, 4..7 readonly)
     # FB LED1: on/off
     "powerstate":              {"varid": 0xA3, 'type': 'bit',         'bitposition':  0, 'read': True, 'write': True },
@@ -208,8 +223,11 @@ DIGIT_SE_REGISTERS_AND_COILS = {
     "fault_detected":          {"varid": 0xA3, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
     # FB icon 4: Service request
     "service_requested":       {"varid": 0xA3, 'type': 'bit',         'bitposition':  7, 'read': True, 'write': False},
-    # (Post-)heating target temperature on the NTC sensor scale (10..27 °C)
-    "post_heating_setpoint":   {"varid": 0xA4, 'type': 'temperature', 'bitposition': -1, 'read': True, 'write': True },
+    # (Post-)heating target temperature. The Digit SE encodes this register
+    # with 8 discrete hex levels (10..27 °C), NOT on the NTC sensor scale -
+    # see HEATING_TARGET_HEX_TO_CELSIUS below and dirtyha/my-esp8266
+    # (hex2HtCel / htCel2Hex).
+    "post_heating_setpoint":   {"varid": 0xA4, 'type': 'heating_target', 'bitposition': -1, 'read': True, 'write': True },
     # Boost mode: 0=fireplace (ignition - no exhaust air in the first 15 minutes of boost); 1=normal boost mode
     "boost_mode":              {"varid": 0xAA, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': True },
     # Switch boost/fireplace on (set to 1; will be reset by mainboard automatically)
@@ -218,28 +236,25 @@ DIGIT_SE_REGISTERS_AND_COILS = {
     "boost_status":            {"varid": 0x71, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
     # Remaining minutes of boost/fireplace if on
     "boost_remaining":         {"varid": 0x79, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
-    # I/O port 0x08: read-only status bits on the Digit SE
-    # 1 = summer mode (on Helios this bit is the bypass damper position)
-    "summer_mode":             {"varid": 0x08, 'type': 'bit',         'bitposition':  1, 'read': True, 'write': False},
+    # I/O port 0x08 on the Digit SE (dirtyha/my-esp8266): bit 0 is the
+    # summer mode status (on Helios bit 1 is the bypass damper position).
+    # The Digit SE does not report fan-running or front-heating status in
+    # this register (bits 3/4/5 stay 0 even while the fans are running).
+    "summer_mode":             {"varid": 0x08, 'type': 'bit',         'bitposition':  0, 'read': True, 'write': False},
     "fault_relay":             {"varid": 0x08, 'type': 'bit',         'bitposition':  2, 'read': True, 'write': False},
-    # Fresh air ventilator running
-    "input_fan_running":       {"varid": 0x08, 'type': 'bit',         'bitposition':  3, 'read': True, 'write': False},
-    # Front heating active
-    "preheating_on":           {"varid": 0x08, 'type': 'bit',         'bitposition':  4, 'read': True, 'write': False},
-    # Exhaust air ventilator running
-    "output_fan_running":      {"varid": 0x08, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': False},
     # External fireplace/boost switch active
     "external_boost_switch":   {"varid": 0x08, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
     # Service reminder interval in months (used after reset of service reminder)
     "service_interval":        {"varid": 0xA6, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': True },
     # Remaining months for current service reminder
     "service_due_months":      {"varid": 0xAB, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': True },
-    # Error / fault register. 0 = no fault. see COMPONENT_FAULTS above
-    "fault_number":            {"varid": 0x36, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
-    # Humidity reading sensor 1. 33H = 0% RH FFH = 100% RH
-    "rh_sensor1_raw":          {"varid": 0x2F, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
-    # Humidity reading sensor 2. 33H = 0% RH FFH = 100% RH
-    "rh_sensor2_raw":          {"varid": 0x30, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
+    # NOTE: no fault number register on the Digit SE - register 0x36 is a
+    # Helios register and answers with garbage on the Digit SE. Fault state
+    # is reported via register 0xA3 bit 6 ("fault_detected").
+    # Humidity reading (Digit SE: single sensor at 0x4C per
+    # dirtyha/my-esp8266). 33H = 0% RH, FFH = 100% RH; below 0x33 = no
+    # sensor installed.
+    "rh_sensor1_raw":          {"varid": 0x4C, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
     # CO2 - measurements (upper/lower byte; combined = ppm)
     "co2_reading_upper_byte":  {"varid": 0x2B, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
     "co2_reading_lower_byte":  {"varid": 0x2C, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
