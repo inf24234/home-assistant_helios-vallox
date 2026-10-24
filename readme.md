@@ -87,7 +87,9 @@ this model is selected the integration:
   post-heating target `0xA4` is encoded as 8 discrete hex levels of
   10/13/15/18/20/23/25/27 °C (not on the NTC sensor scale),
 - maps the Digit SE bit semantics correctly: `0xA3` bit 3 is the writable
-  heating mode (winter/summer), `0x08` bit 0 is the summer mode status,
+  heating mode (winter/summer), `0x08` bit 1 is the summer mode status
+  (verified on a real Digit SE: bit 0 reads 1 even in winter mode with heat
+  recovery active, so bit 0 is not the summer mode on this device),
 - detects an installed CO2 sensor from the CO2 reading (the Digit SE has no
   CO2 sensor presence register `0x2D`).
 
@@ -96,11 +98,13 @@ defrost setpoints, defrost hysteresis, fan rpm calibration, analog input,
 CO2 setting/alarm, CO2 sensor presence, basic humidity level, humidity control
 mode, a second humidity sensor, effective airflow / electrical power (they
 need the fan rpm registers), the fault number register `0x36` (Helios only;
-the fault state itself is shown via `fault_detected`), pre-heating status
-(the Digit SE has no front heating module), the supply/extract fan running
-statuses (the Digit SE does not report them in register `0x08`) and the
-Softboost fireplace mode (the exhaust fan cannot be switched off via the bus;
-use the native `activate_boost` switch + `boost_mode` select for the
+the fault state itself is shown via `fault_detected`) and pre-heating status
+(the Digit SE has no front heating module). The supply/extract fan running
+sensors are shown as **derived** values (unit powered on + fan speed >= 1),
+because the Digit SE does not report a motor running status in register
+`0x08` (bits 3/5 stay 0 even while both fans are running). Softboost
+fireplace mode is hidden (the exhaust fan cannot be switched off via the
+bus; use the native `activate_boost` switch + `boost_mode` select for the
 fireplace function instead).
 
 ## ⚙️ Compatible / tested ser2net adapters

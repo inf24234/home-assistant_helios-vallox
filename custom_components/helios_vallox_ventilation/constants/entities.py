@@ -58,13 +58,22 @@ BINARY_SENSOR_ENTITIES = [
     {"key": "service_requested", "device_class": "problem", "icon": "mdi:alert"},
     {"key": "post_heating_on", "device_class": None, "icon": "mdi:heating-coil"},
     {"key": "bypass_damper_position", "device_class": None, "icon": "mdi:valve", "exclude_models": [_DIGIT_SE]},
-    # On the Digit SE, register 0x08 bit 0 is the summer mode status
-    # (dirtyha/my-esp8266; on Helios bit 1 is the bypass damper position)
+    # On the Digit SE, register 0x08 bit 1 is the summer mode status
+    # (valloxesp VX_08_FLAG_SUMMER_MODE; on Helios bit 1 is the bypass
+    # damper position). Bit 0 reads 1 on a Digit SE in winter mode, so it
+    # is NOT the summer mode on this device.
     {"key": "summer_mode", "device_class": None, "icon": "mdi:weather-sunny", "models": [_DIGIT_SE]},
     {"key": "fault_relay", "device_class": None, "icon": "mdi:electric-switch"},
     # The Digit SE has no front heating (Vorheizung) module
     {"key": "preheating_on", "device_class": None, "icon": "mdi:heating-coil", "exclude_models": [_DIGIT_SE]},
     {"key": "external_boost_switch", "device_class": None, "icon": "mdi:toggle-switch"},
+    # The Digit SE reports no motor status on the bus (0x08 bits 3/5 stay 0
+    # while the fans run), so both fan-running states are derived from
+    # powerstate + fanspeed in api.py. On Helios the register bits are the
+    # fan on/off configuration, not a running status, so these stay Digit SE
+    # only.
+    {"key": "input_fan_running", "device_class": "running", "icon": "mdi:fan", "models": [_DIGIT_SE]},
+    {"key": "output_fan_running", "device_class": "running", "icon": "mdi:fan", "models": [_DIGIT_SE]},
     {"key": "co2_sensor1_present", "device_class": "connectivity", "icon": "mdi:molecule-co2", "entity_category": "diagnostic", "enabled_default": False, "exclude_models": [_DIGIT_SE]},
     {"key": "co2_sensor2_present", "device_class": "connectivity", "icon": "mdi:molecule-co2", "entity_category": "diagnostic", "enabled_default": False, "exclude_models": [_DIGIT_SE]},
     {"key": "co2_sensor3_present", "device_class": "connectivity", "icon": "mdi:molecule-co2", "entity_category": "diagnostic", "enabled_default": False, "exclude_models": [_DIGIT_SE]},

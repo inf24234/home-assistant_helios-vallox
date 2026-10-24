@@ -152,6 +152,8 @@
       "fault_relay": {"name": "Störmelderelais geschlossen"},
       "preheating_on": {"name": "Vorheizung aktiv"},
       "external_boost_switch": {"name": "Externer Kamin-/Boost-Schalter geschlossen"},
+      "input_fan_running": {"name": "Zuluftventilator läuft"},
+      "output_fan_running": {"name": "Abluftventilator läuft"},
       "co2_alarm": {"name": "Indikator: CO₂-Alarm"},
       "co2_sensor1_present": {"name": "CO₂-Sensor 1 installiert"},
       "co2_sensor2_present": {"name": "CO₂-Sensor 2 installiert"},

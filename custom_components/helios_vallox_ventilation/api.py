@@ -30,6 +30,7 @@ try:
         COMPONENT_FAULTS,
         CONF_DEVICE_MODEL,
         CUSTOM_MODEL,
+        MODEL_VALLOX_DIGIT_SE,
         get_registers_for_model,
         get_model_profile,
     )
@@ -42,6 +43,7 @@ except ImportError:
         COMPONENT_FAULTS,
         CONF_DEVICE_MODEL,
         CUSTOM_MODEL,
+        MODEL_VALLOX_DIGIT_SE,
         get_registers_for_model,
         get_model_profile,
     )
@@ -412,6 +414,19 @@ class HeliosBase:
                 if 0 <= fanspeed < len(powers):
                     fan_pct = min(input_pct, output_pct)
                     all_values['electrical_power'] = int(powers[fanspeed] * fan_pct / 100)
+
+
+        # Digit SE: derive the fan running states. The Digit SE reports no
+        # motor status on the bus (0x08 bits 3/5 stay 0 while the fans are
+        # running), so both are derived from powerstate + fanspeed. On the
+        # Digit SE both motors run whenever the unit is powered on with a
+        # fan speed >= 1; there is no independent fan on/off control.
+        if self._model == MODEL_VALLOX_DIGIT_SE:
+            powerstate = all_values.get('powerstate')
+            fanspeed = all_values.get('fanspeed')
+            fan_running = bool(powerstate) and fanspeed is not None and int(fanspeed) >= 1
+            all_values['input_fan_running'] = fan_running
+            all_values['output_fan_running'] = fan_running
 
         return all_values
 

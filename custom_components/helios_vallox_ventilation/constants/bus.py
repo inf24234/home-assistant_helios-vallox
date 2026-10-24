@@ -236,11 +236,15 @@ DIGIT_SE_REGISTERS_AND_COILS = {
     "boost_status":            {"varid": 0x71, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
     # Remaining minutes of boost/fireplace if on
     "boost_remaining":         {"varid": 0x79, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
-    # I/O port 0x08 on the Digit SE (dirtyha/my-esp8266): bit 0 is the
-    # summer mode status (on Helios bit 1 is the bypass damper position).
-    # The Digit SE does not report fan-running or front-heating status in
-    # this register (bits 3/4/5 stay 0 even while the fans are running).
-    "summer_mode":             {"varid": 0x08, 'type': 'bit',         'bitposition':  0, 'read': True, 'write': False},
+    # I/O port 0x08 on the Digit SE: bit 1 is the summer mode status
+    # (valloxesp VX_08_FLAG_SUMMER_MODE; on Helios it is the bypass damper
+    # position). Verified against a real Digit SE: bit 0 reads 1 while the
+    # unit is in winter mode with heat recovery active, so bit 0 is NOT the
+    # summer mode on this device. The Digit SE does not report fan-running
+    # or front-heating status in this register (bits 3/4/5 stay 0 even
+    # while the fans are running) - the fan running states are derived
+    # from powerstate + fanspeed instead (see api.py).
+    "summer_mode":             {"varid": 0x08, 'type': 'bit',         'bitposition':  1, 'read': True, 'write': False},
     "fault_relay":             {"varid": 0x08, 'type': 'bit',         'bitposition':  2, 'read': True, 'write': False},
     # External fireplace/boost switch active
     "external_boost_switch":   {"varid": 0x08, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
