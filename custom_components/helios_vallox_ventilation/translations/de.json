@@ -170,7 +170,7 @@
       "max_fanspeed": {"name": "Lüftungsstufe maximal"},
       "bypass_setpoint": {"name": "Temperatur für Bypass Aktivierung"},
       "preheat_setpoint": {"name": "Vorheizung – Einschalttemperatur"},
-      "post_heating_setpoint": {"name": "Nachheizung – Solltemperatur"},
+      "post_heating_setpoint": {"name": "Zuluft-Solltemperatur"},
       "defrost_setpoint": {"name": "Frostmodus Ein"},
       "defrost_hysteresis": {"name": "Frostmodus Hysterese"},
       "input_fan_percent": {"name": "Drehzahl % Zuluftmotor"},
@@ -196,8 +196,8 @@
         "state": {"fireplace": "Kaminmodus", "normal": "Normal"}
       },
       "winter_mode": {
-        "name": "Betriebsmodus",
-        "state": {"summer": "Sommer", "winter": "Winter"}
+        "name": "Wärmetauscher / Bypass",
+        "state": {"summer": "Sommer (Bypass)", "winter": "Winter (Wärmetauscher)"}
       },
       "humidity_control_mode": {
         "name": "Luftfeuchte Regelung",

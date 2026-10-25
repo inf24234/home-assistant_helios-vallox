@@ -89,25 +89,27 @@ NUMBER_ENTITIES = [
     {"key": "max_fanspeed", "unit": None, "min": 1, "max": 8, "step": 1, "mode": "slider", "icon": "mdi:speedometer", "description": "Maximum fan speed available to remotes", "factory_setting": 8, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "bypass_setpoint", "unit": "°C", "min": 0, "max": 25, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Temperature difference for bypass activation", "factory_setting": 10, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "preheat_setpoint", "unit": "°C", "min": -10, "max": 10, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Pre-heating activation temperature", "factory_setting": -3, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
-    # Digit SE without a retrofitted post-heater: register 0xA4 reads 0xFF
-    # statically (meaningless without a heater). The Digit SE hex-level
-    # encoding of 0xA4 stays in the register table (constants/bus.py,
-    # type "heating_target") so the entity can be re-enabled if a post-heater
-    # is retrofitted.
-    {"key": "post_heating_setpoint", "unit": "°C", "min": 10, "max": 30, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "User-configured post-heating setpoint", "factory_setting": None, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
+    # On the Digit SE, register 0xA4 is the supply air temperature setpoint:
+    # the panel shows and stores it even without a post-heater installed.
+    # It is encoded as 8 discrete hex levels 10..27 °C (constants/bus.py,
+    # type "heating_target"; quantized on write in api.py).
+    {"key": "post_heating_setpoint", "unit": "°C", "min": 10, "max": 30, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Supply air temperature setpoint (Digit SE) / post-heating setpoint", "factory_setting": None, "entity_category": "config", "model_overrides": {_DIGIT_SE: {"max": 27, "description": "Supply air temperature setpoint (levels 10-27 C)"}}},
     {"key": "defrost_setpoint", "unit": "°C", "min": -6, "max": 15, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Switch off input fan below this exhaust temperature", "factory_setting": 3, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "defrost_hysteresis", "unit": "°C", "min": 1, "max": 10, "step": 1, "mode": "box", "icon": "mdi:thermometer", "description": "Defrost + Hysteresis: Switch on intake air again", "factory_setting": 3, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "input_fan_percent", "unit": "%", "min": 65, "max": 100, "step": 1, "mode": "slider", "icon": "mdi:percent", "description": "Input fan: Percent of regular voltage", "factory_setting": 100, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "output_fan_percent", "unit": "%", "min": 65, "max": 100, "step": 1, "mode": "slider", "icon": "mdi:percent", "description": "Output fan: Percent of regular voltage", "factory_setting": 100, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
-    {"key": "service_interval", "unit": "months", "min": 1, "max": 15, "step": 1, "mode": "box", "icon": "mdi:calendar-multiple", "description": "Service interval for filter warning", "factory_setting": 4, "entity_category": "config"},
-    {"key": "service_due_months", "unit": "months", "min": 0, "max": 15, "step": 1, "mode": "box", "icon": "mdi:calendar-end", "description": "Remaining time for filter warning", "factory_setting": None },
+    # Digit SE service/filter warning interval: 2..9 months (factory default 4)
+    {"key": "service_interval", "unit": "months", "min": 1, "max": 15, "step": 1, "mode": "box", "icon": "mdi:calendar-multiple", "description": "Service interval for filter warning", "factory_setting": 4, "entity_category": "config", "model_overrides": {_DIGIT_SE: {"min": 2, "max": 9}}},
+    {"key": "service_due_months", "unit": "months", "min": 0, "max": 15, "step": 1, "mode": "box", "icon": "mdi:calendar-end", "description": "Remaining time for filter warning", "factory_setting": None, "model_overrides": {_DIGIT_SE: {"max": 9}}},
     {"key": "co2_setting_value", "unit": "ppm", "min": 400, "max": 2000, "step": 50, "mode": "slider", "icon": "mdi:molecule-co2", "description": "CO2 alarm indicator setpoint", "factory_setting": 900, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
     {"key": "basic_humidity_level", "unit": "%", "min": 0, "max": 100, "step": 1, "mode": "slider", "icon": "mdi:water-percent", "description": "Basic humidity level", "factory_setting": None, "entity_category": "config", "exclude_models": [_DIGIT_SE]},
 ]
 SWITCH_ENTITIES = [
     {"key": "powerstate", "icon": "mdi:power-settings"},
-    {"key": "co2_indicator", "icon": "mdi:alert"},
-    {"key": "rh_indicator", "icon": "mdi:alert"},
+    # No CO2 / humidity sensors installed on the Digit SE (the panel keys for
+    # CO2/rH control have no function); re-enable if sensors are retrofitted
+    {"key": "co2_indicator", "icon": "mdi:alert", "exclude_models": [_DIGIT_SE]},
+    {"key": "rh_indicator", "icon": "mdi:alert", "exclude_models": [_DIGIT_SE]},
     {"key": "preheat_status", "icon": "mdi:tooltip-question", "entity_category": "config", "exclude_models": [_DIGIT_SE] },
     {"key": "activate_boost", "icon": "mdi:fan"},
     # On the Digit SE, register 0x08 bits 3/5 are read-only fan running
@@ -118,6 +120,6 @@ SWITCH_ENTITIES = [
 SELECT_ENTITIES = [
     {"key": "boost_mode", "icon": "mdi:fan-speed-2", "options": {1: "normal", 0: "fireplace"}, "entity_category": "config" },
     # On the Digit SE this is the writable heating mode (winter = heat recovery on)
-    {"key": "winter_mode", "icon": "mdi:snowflake-thermometer", "options": {0: "summer", 1: "winter"} },
+    {"key": "winter_mode", "icon": "mdi:snowflake-thermometer", "options": {0: "summer", 1: "winter"}, "model_overrides": {_DIGIT_SE: {"description": "Operating mode: winter = heat exchanger active, summer = bypass"}} },
     {"key": "humidity_control_mode", "icon": "mdi:water-percent", "options": {0: "manual", 1: "automatic"}, "entity_category": "config", "exclude_models": [_DIGIT_SE] },
 ]

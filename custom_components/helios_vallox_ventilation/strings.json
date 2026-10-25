@@ -170,7 +170,7 @@
       "max_fanspeed": {"name": "Maximum fan speed"},
       "bypass_setpoint": {"name": "Bypass setpoint"},
       "preheat_setpoint": {"name": "Pre-heating activation temperature"},
-      "post_heating_setpoint": {"name": "Post-heating setpoint"},
+      "post_heating_setpoint": {"name": "Supply air setpoint"},
       "defrost_setpoint": {"name": "Defrost setpoint"},
       "defrost_hysteresis": {"name": "Defrost hysteresis"},
       "basic_humidity_level": {"name": "Humidity base level"},
@@ -196,8 +196,8 @@
         "state": {"fireplace": "Fireplace", "normal": "Normal"}
       },
       "winter_mode": {
-        "name": "Operating mode",
-        "state": {"summer": "Summer", "winter": "Winter"}
+        "name": "Heat exchanger / Bypass",
+        "state": {"summer": "Summer (bypass)", "winter": "Winter (heat exchanger)"}
       },
       "humidity_control_mode": {
         "name": "Humidity control mode",

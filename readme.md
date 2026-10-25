@@ -84,10 +84,13 @@ this model is selected the integration:
   (outside), `0x5A` (extract), `0x5B` (supply) and `0x5C` (exhaust) - the
   Helios/SE-series registers `0x32..0x35` do **not** hold the temperatures on
   the Digit SE, humidity comes from the single register `0x4C`, and the
-  post-heating target `0xA4` is encoded as 8 discrete hex levels of
+  supply air temperature setpoint `0xA4` (shown and stored by the panel even
+  without a post-heater) is encoded as 8 discrete hex levels of
   10/13/15/18/20/23/25/27 °C (not on the NTC sensor scale),
 - maps the Digit SE bit semantics correctly: `0xA3` bit 3 is the writable
-  heating mode (winter/summer), `0x08` bit 1 is the summer mode status
+  operating mode (the panel key "post-heating on/off and bypass of the heat
+  exchanger in summer on/off": winter = heat exchanger active, summer =
+  bypass), `0x08` bit 1 is the summer mode status
   (verified on a real Digit SE: bit 0 reads 1 even in winter mode with heat
   recovery active, so bit 0 is not the summer mode on this device),
 - detects an installed CO2 sensor from the CO2 reading (the Digit SE has no
@@ -99,12 +102,18 @@ CO2 setting/alarm, CO2 sensor presence, basic humidity level, humidity control
 mode, a second humidity sensor, effective airflow / electrical power (they
 need the fan rpm registers), the fault number register `0x36` (Helios only;
 the fault state itself is shown via `fault_detected`), pre-heating status
-(the Digit SE has no front heating module) and the post-heating status /
-target (the Digit SE profile assumes no post-heater is installed: `0xA3`
-bit 5 reads 1 statically and `0xA4` reads `0xFF`, both meaningless without
-a heater - if you retrofit a post-heater, re-enable `post_heating_on` and
-`post_heating_setpoint` in `constants/entities.py`, the Digit SE hex-level
-encoding in register `0xA4` is already implemented). The supply/extract
+(the Digit SE has no front heating module) and the Helios post-heating target
+register `0x57` (shown as `post_heating_target`; the Digit SE supply air
+setpoint lives in `0xA4` instead). Also hidden on a Digit SE without
+installed sensors/hardware: the CO2 and humidity indicator switches (the
+panel keys for CO2/rH control have no function without the sensors) and the
+post-heating status `post_heating_on` (`0xA3` bit 5, the panel LED "heating
+coil operating", reads 1 statically when no post-heater is installed, so it
+is meaningless - if you retrofit a post-heater (e.g. Vallox ENH 1001) or the
+CO2/rH sensors, remove the `exclude_models` lines for `post_heating_on`,
+`co2_indicator` and `rh_indicator` in `constants/entities.py`). The Digit SE
+service/filter warning interval is 2..9 months (factory default 4). The
+supply/extract
 fan running sensors are shown as **derived** values (unit powered on +
 fan speed >= 1), because the Digit SE does not report a motor running
 status in register `0x08` (bits 3/5 stay 0 even while both fans are
