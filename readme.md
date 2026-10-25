@@ -112,7 +112,15 @@ coil operating", reads 1 statically when no post-heater is installed, so it
 is meaningless - if you retrofit a post-heater (e.g. Vallox ENH 1001) or the
 CO2/rH sensors, remove the `exclude_models` lines for `post_heating_on`,
 `co2_indicator` and `rh_indicator` in `constants/entities.py`). The Digit SE
-service/filter warning interval is 2..9 months (factory default 4). The
+service/filter warning interval is 2..9 months (factory default 4), but it is
+a **panel** (Reglereinheit H) setting: the mainboard answers polls of the
+interval register `0xA6` with a fixed `0x7F` (127) that does not reflect the
+panel setting. Out-of-range `0xA6` reads are therefore treated as invalid
+(`number.ventilation_service_interval` shows "unavailable" instead of 127;
+the number can still be set 2..9, and a valid read-back is shown normally).
+Reset the service reminder at the panel (+/-) - the bus-side
+`reset_service_reminder` button cannot work on the Digit SE because the true
+interval is not readable from the bus. The
 supply/extract
 fan running sensors are shown as **derived** values (unit powered on +
 fan speed >= 1), because the Digit SE does not report a motor running

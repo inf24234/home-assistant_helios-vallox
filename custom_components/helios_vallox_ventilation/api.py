@@ -428,6 +428,17 @@ class HeliosBase:
             all_values['input_fan_running'] = fan_running
             all_values['output_fan_running'] = fan_running
 
+            # Digit SE: the service reminder interval (0xA6) is a setting of
+            # the panel (Reglereinheit H), adjustable 2..9 months (factory
+            # default 4). The mainboard answers 0xA6 polls with a fixed 0x7F
+            # (127) that does not reflect the panel setting, so an out-of-range
+            # value is invalid and must not be displayed as the interval
+            # (same class of issue as 0xA3 bit 5 reading 1 statically without
+            # a post-heater; verified on a real Digit SE).
+            service_interval = all_values.get('service_interval')
+            if service_interval is not None and not 2 <= int(service_interval) <= 9:
+                all_values['service_interval'] = None
+
         return all_values
 
 
