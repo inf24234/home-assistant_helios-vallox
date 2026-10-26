@@ -8,6 +8,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .constants import (
     DOMAIN,
+    MODEL_VALLOX_DIGIT_SE,
     SWITCH_ENTITIES,
     SOFTBOOST_SWITCH_ENTITIES,
     filter_entities_for_model,
@@ -25,10 +26,16 @@ async def async_setup_entry(
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
     model = get_device_model(entry)
+    is_digit_se = model == MODEL_VALLOX_DIGIT_SE
     entities = [
         HeliosSwitch(coordinator, entry, switch_def)
         for switch_def in filter_entities_for_model(SWITCH_ENTITIES, model)
+        # On the Digit SE the native boost is emulated locally (the mainboard
+        # does not act on the bus trigger 0x71 bit 5) - dedicated entity below.
+        if not (is_digit_se and switch_def["key"] == "activate_boost")
     ]
+    if is_digit_se:
+        entities.append(HeliosBoostSwitch(coordinator, entry))
     # Per-device Softboost switches.
     # These do not write directly to the ventilation unit.
     entities.extend(
@@ -72,6 +79,60 @@ class HeliosSwitch(CoordinatorEntity, SwitchEntity):
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
+        await self._coordinator.turn_off(self._variable)
+        self.async_write_ha_state()
+
+
+class HeliosBoostSwitch(CoordinatorEntity, SwitchEntity):
+    """Digit SE: emulated native boost switch ("Stoßlüftung aktivieren").
+
+    The Digit SE mainboard does not act on the native bus boost trigger
+    (register 0x71 bit 5), so this switch drives the emulated boost
+    controller (fixed: max fan speed for 45 minutes; fireplace mode stops
+    the exhaust fan for the first 15 minutes) via the coordinator.
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator.coordinator)
+        self._coordinator = coordinator
+        self._entry = entry
+        self._variable = "activate_boost"
+
+        self._attr_translation_key = "activate_boost"
+        self._attr_unique_id = f"{entry.entry_id}_activate_boost"
+        self.entity_id = build_entity_id("switch", entry, "activate_boost")
+        self._attr_icon = "mdi:fan"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information."""
+        return build_device_info(self._entry)
+
+    async def async_added_to_hass(self) -> None:
+        """Register for emulated boost state updates."""
+        await super().async_added_to_hass()
+        boost = getattr(self._coordinator, "boost", None)
+        if boost is not None:
+            self.async_on_remove(
+                boost.async_add_listener(self.schedule_update_ha_state)
+            )
+
+    @property
+    def is_on(self):
+        """Return the emulated boost state."""
+        boost = getattr(self._coordinator, "boost", None)
+        return bool(boost is not None and boost.is_active)
+
+    async def async_turn_on(self, **kwargs):
+        """Start the emulated boost (routed by the coordinator)."""
+        await self._coordinator.turn_on(self._variable)
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs):
+        """Stop the emulated boost and restore the previous fan speed."""
         await self._coordinator.turn_off(self._variable)
         self.async_write_ha_state()
 

@@ -1,6 +1,6 @@
 import logging
 from typing import Any
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -28,6 +28,7 @@ from .constants import (
     CONF_POWER_PER_MODE,
     CUSTOM_MODEL,
     DEFAULT_ENTITY_PREFIX,
+    MODEL_VALLOX_DIGIT_SE,
     filter_entities_for_model,
 )
 
@@ -50,6 +51,10 @@ async def async_setup_entry(
     ]
     entities.append(HeliosConfigurationSensor(entry))
     entities.append(HeliosSoftBoostRemainingSensor(coordinator, entry))
+    # Digit SE: register 0x79 is not a live boost countdown on this model;
+    # show the remaining time of the emulated boost instead.
+    if model == MODEL_VALLOX_DIGIT_SE:
+        entities.append(HeliosBoostRemainingSensor(coordinator, entry))
     async_add_entities(entities)
 
 
@@ -107,6 +112,53 @@ class HeliosSensor(CoordinatorEntity, SensorEntity):
         if self._description:
             attrs["description"] = self._description
         return attrs if attrs else None
+
+
+class HeliosBoostRemainingSensor(CoordinatorEntity, SensorEntity):
+    """Digit SE: remaining time of the emulated boost ("Restzeit Stoßlüftung").
+
+    Replaces the native register 0x79, which is not a live countdown on the
+    Digit SE (static value, e.g. frozen at 163 minutes).
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_native_unit_of_measurement = "min"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_icon = "mdi:fan-clock"
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator.coordinator)
+        self._coordinator = coordinator
+        self._entry = entry
+        self._variable = "boost_remaining"
+
+        self._attr_translation_key = self._variable
+        self._attr_unique_id = f"{entry.entry_id}_{self._variable}"
+        self.entity_id = build_entity_id("sensor", entry, self._variable)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information."""
+        return build_device_info(self._entry)
+
+    async def async_added_to_hass(self) -> None:
+        """Register for emulated boost countdown updates."""
+        await super().async_added_to_hass()
+
+        boost = getattr(self._coordinator, "boost", None)
+        if boost is not None:
+            self.async_on_remove(
+                boost.async_add_listener(self.schedule_update_ha_state)
+            )
+
+    @property
+    def native_value(self):
+        """Return the emulated boost remaining time in minutes."""
+        boost = getattr(self._coordinator, "boost", None)
+        if boost is None:
+            return None
+        return boost.remaining_seconds // 60
 
 
 class HeliosSoftBoostRemainingSensor(CoordinatorEntity, SensorEntity):

@@ -125,9 +125,26 @@ supply/extract
 fan running sensors are shown as **derived** values (unit powered on +
 fan speed >= 1), because the Digit SE does not report a motor running
 status in register `0x08` (bits 3/5 stay 0 even while both fans are
-running). Softboost fireplace mode is hidden (the exhaust fan cannot be
-switched off via the bus; use the native `activate_boost` switch +
-`boost_mode` select for the fireplace function instead).
+running).
+
+**Boost / fireplace function ("Stoßlüftung") on the Digit SE:** verified on a
+real unit, the Digit SE mainboard stores writes to the native bus boost
+trigger (`0x71` bit 5) but never acts on them - no fan boost, no status change
+in `0x71` bit 6, no countdown in `0x79`, in either boost mode and with every
+bus addressing variant. `0x71` bit 6 and `0x79` are therefore not live on this
+model (they can stay static, e.g. bit 6 stuck at 1 with `0x79` frozen at 163
+minutes, which showed a misleading "boost active" indicator with a frozen
+remaining time). For this model the integration emulates the boost locally,
+exactly per the official Vallox Digit SE documentation: the `activate_boost`
+switch ("Stoßlüftung aktivieren") runs the fans at maximum speed (level 8) for
+45 minutes and then restores the previous fan speed; in fireplace mode
+("Kaminmodus", `boost_mode` select) the exhaust fan is additionally stopped
+via `0x08` bit 5 for the first 15 minutes (creating overpressure for the
+fireplace). The `boost_status` indicator and the `boost_remaining` sensor show
+the emulated state and remaining time. The exhaust-fan-off register `0x08`
+bit 5 is writable on the Digit SE (verified on a real unit), so Softboost
+fireplace mode is available on this model as well. Other models keep using
+the native bus trigger unchanged.
 
 ## ⚙️ Compatible / tested ser2net adapters
 

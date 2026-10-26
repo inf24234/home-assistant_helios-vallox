@@ -182,8 +182,9 @@ REGISTERS_AND_COILS = {
 #   SE; valloxesp maps it to HVAC mode HEAT/FAN).
 # - 0x08 bit 1 is the summer mode status on the Digit SE (on Helios it is the
 #   bypass damper position).
-# - 0x08 bits 3 and 5 are read-only fan running statuses on the Digit SE
-#   (on Helios they are writable fan-off flags).
+# - 0x08 bit 5 is the writable exhaust-fan-off flag on the Digit SE (verified
+#   on a real unit; on Helios it is the same fan-off flag). 0x08 bit 3 was not
+#   verified as writable and stays excluded.
 # - 0xA4 is the (post-)heating target temperature, 10..27 °C.
 # - Not supported by the Digit SE (therefore not polled here):
 #   0x2D (CO2 sensor presence), 0x2E (analog input), 0x57 (post-heating target),
@@ -230,22 +231,38 @@ DIGIT_SE_REGISTERS_AND_COILS = {
     "post_heating_setpoint":   {"varid": 0xA4, 'type': 'heating_target', 'bitposition': -1, 'read': True, 'write': True },
     # Boost mode: 0=fireplace (ignition - no exhaust air in the first 15 minutes of boost); 1=normal boost mode
     "boost_mode":              {"varid": 0xAA, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': True },
-    # Switch boost/fireplace on (set to 1; will be reset by mainboard automatically)
+    # Native boost trigger. IMPORTANT (verified on a real Digit SE): the
+    # mainboard stores writes to 0x71 but does NOT act on bit 5 - no fan
+    # boost, no status bit 6, no countdown in 0x79, in either boost mode and
+    # with every bus addressing variant. For this model the integration
+    # therefore emulates the boost locally (timed fan speed 8 for 45 min per
+    # the Vallox Digit SE documentation; fireplace mode stops the exhaust fan
+    # via 0x08 bit 5 for the first 15 min) - see coordinator.py/softboost.py.
     "activate_boost":          {"varid": 0x71, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': True },
-    # Current boost/fireplace status (off/on)
+    # Native boost status bit. Not a live status on the Digit SE (stays static,
+    # e.g. stuck at 1 with 0x79 frozen) - the integration shows the emulated
+    # boost state instead.
     "boost_status":            {"varid": 0x71, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
-    # Remaining minutes of boost/fireplace if on
+    # Native boost countdown. Not a live countdown on the Digit SE (static
+    # value) - the integration shows the emulated remaining time instead.
     "boost_remaining":         {"varid": 0x79, 'type': 'dec',         'bitposition': -1, 'read': True, 'write': False},
     # I/O port 0x08 on the Digit SE: bit 1 is the summer mode status
     # (valloxesp VX_08_FLAG_SUMMER_MODE; on Helios it is the bypass damper
     # position). Verified against a real Digit SE: bit 0 reads 1 while the
     # unit is in winter mode with heat recovery active, so bit 0 is NOT the
     # summer mode on this device. The Digit SE does not report fan-running
-    # or front-heating status in this register (bits 3/4/5 stay 0 even
+    # or front-heating status in this register (bits 3/4/5 read 0 even
     # while the fans are running) - the fan running states are derived
-    # from powerstate + fanspeed instead (see api.py).
+    # from powerstate + fanspeed instead (see api.py). Bit 5 is the exception:
+    # it is the writable exhaust-fan-off flag (fireplace function, see below).
     "summer_mode":             {"varid": 0x08, 'type': 'bit',         'bitposition':  1, 'read': True, 'write': False},
     "fault_relay":             {"varid": 0x08, 'type': 'bit',         'bitposition':  2, 'read': True, 'write': False},
+    # Exhaust air ventilator off; set to 1 to switch off (fireplace function:
+    # "Kamintastschalter-Funktion stoppt den Abluftventilator für 15 Minuten"
+    # per the Vallox Digit SE technical manual). Verified writable on a real
+    # Digit SE: writing 0x20 twice reads back 0x21, restoring 0x00 reads back
+    # 0x01. The Helios register doc notes the bit "requires to be set twice".
+    "output_fan_off":          {"varid": 0x08, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': True },
     # External fireplace/boost switch active
     "external_boost_switch":   {"varid": 0x08, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
     # Service reminder interval in months (used after reset of service reminder)

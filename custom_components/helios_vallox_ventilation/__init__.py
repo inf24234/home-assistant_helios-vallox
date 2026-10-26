@@ -9,7 +9,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import slugify
 
-from .constants import CONF_CONNECTION, DOMAIN
+from .constants import (
+    BOOST_DEFAULT_DURATION,
+    BOOST_DEFAULT_LEVEL,
+    BOOST_STORAGE_KEY_SUFFIX,
+    CONF_CONNECTION,
+    DOMAIN,
+)
 from .coordinator import HeliosCoordinator
 from .device_info import get_entity_prefix
 from .schema import SERVICE_WRITE_VALUE_SCHEMA
@@ -260,6 +266,24 @@ async def async_setup_entry(
     coordinator.softboost = softboost
     await softboost.async_restore_after_startup()
 
+    # Emulated native boost ("Stoßlüftung") for device models whose mainboard
+    # does not implement the native bus boost trigger (Vallox Digit SE).
+    # Fixed settings per the official Vallox Digit SE documentation: maximum
+    # fan speed for 45 minutes; fireplace mode stops the exhaust fan (0x08
+    # bit 5) for the first 15 minutes. The boost_mode select mirrors the
+    # fireplace setting into this controller.
+    boost = SoftBoostController(
+        hass,
+        entry.entry_id,
+        coordinator,
+        storage_key_suffix=BOOST_STORAGE_KEY_SUFFIX,
+    )
+    await boost.async_load()
+    boost.state.level = BOOST_DEFAULT_LEVEL
+    boost.state.duration_seconds = BOOST_DEFAULT_DURATION
+    coordinator.boost = boost
+    await boost.async_restore_after_startup()
+
     hass.data.setdefault(
         DOMAIN,
         {},
@@ -403,6 +427,17 @@ async def async_unload_entry(
             is not None
         ):
             coordinator.softboost.async_unload()
+
+        if (
+            coordinator is not None
+            and getattr(
+                coordinator,
+                "boost",
+                None,
+            )
+            is not None
+        ):
+            coordinator.boost.async_unload()
 
         hass.data[DOMAIN].pop(entry.entry_id)
 

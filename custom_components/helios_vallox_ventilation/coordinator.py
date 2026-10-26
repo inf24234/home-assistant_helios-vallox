@@ -408,8 +408,40 @@ class HeliosCoordinator:
             )
             return False
 
+    def _uses_emulated_boost(self) -> bool:
+        """Return True if the native boost switch is emulated locally.
+
+        The Vallox Digit SE mainboard stores writes to the native boost
+        trigger (register 0x71 bit 5) but never acts on them (verified on a
+        real unit), so for this model the boost is emulated with a timed
+        fan-speed write instead of the bus command.
+        """
+        return (
+            self._model == MODEL_VALLOX_DIGIT_SE
+            and getattr(self, "boost", None) is not None
+        )
+
+    async def _async_set_emulated_boost(self, active: bool) -> bool:
+        """Start or stop the emulated boost for models without native support."""
+        boost = getattr(self, "boost", None)
+        if boost is None:
+            return False
+        if active:
+            if not await boost.async_start():
+                _LOGGER.error(
+                    "Failed to start emulated boost (Stoßlüftung) for '%s'.",
+                    self._config_entry.title,
+                )
+                return False
+            return True
+        await boost.async_stop()
+        return True
+
     async def turn_on(self, variable):
         """Turn on a writable bit variable."""
+        if variable == "activate_boost" and self._uses_emulated_boost():
+            await self._async_set_emulated_boost(True)
+            return
         await self._hass.async_add_executor_job(
             self.write_value,
             variable,
@@ -418,6 +450,9 @@ class HeliosCoordinator:
 
     async def turn_off(self, variable):
         """Turn off a writable bit variable."""
+        if variable == "activate_boost" and self._uses_emulated_boost():
+            await self._async_set_emulated_boost(False)
+            return
         await self._hass.async_add_executor_job(
             self.write_value,
             variable,

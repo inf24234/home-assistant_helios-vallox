@@ -19,7 +19,9 @@ SENSOR_ENTITIES = [
     {"key": "temperature_extract_air", "unit": "°C", "device_class": "temperature", "state_class": "measurement", "icon": "mdi:thermometer"},
     {"key": "temperature_exhaust_air", "unit": "°C", "device_class": "temperature", "state_class": "measurement", "icon": "mdi:thermometer"},
     {"key": "post_heating_target", "unit": "°C", "device_class": "temperature", "state_class": None, "icon": "mdi:thermometer", "exclude_models": [_DIGIT_SE]},
-    {"key": "boost_remaining", "unit": "min", "device_class": "duration", "state_class": None, "icon": "mdi:fan-clock"},
+    # On the Digit SE the native countdown register 0x79 is not live (static
+    # value); a dedicated sensor shows the emulated boost remaining time.
+    {"key": "boost_remaining", "unit": "min", "device_class": "duration", "state_class": None, "icon": "mdi:fan-clock", "exclude_models": [_DIGIT_SE]},
     # Register 0x36 (fault number) is a Helios register; the Digit SE answers
     # with garbage there. Fault state on the Digit SE comes from 0xA3 bit 6.
     {"key": "fault_number", "unit": None, "device_class": None, "state_class": None, "icon": "mdi:alert", "exclude_models": [_DIGIT_SE] },
@@ -52,7 +54,9 @@ SENSOR_ENTITIES = [
     {"key": "electrical_power", "unit": "W", "device_class": "power", "state_class": "measurement", "icon": "mdi:flash", "description": "Current electrical power consumption", "exclude_models": [_DIGIT_SE]},
 ]
 BINARY_SENSOR_ENTITIES = [
-    {"key": "boost_status", "device_class": None, "icon": "mdi:tooltip-question"},
+    # On the Digit SE register 0x71 bit 6 is not a live boost status (stays
+    # static); a dedicated binary sensor shows the emulated boost state.
+    {"key": "boost_status", "device_class": None, "icon": "mdi:tooltip-question", "exclude_models": [_DIGIT_SE]},
     {"key": "fault_detected", "device_class": "problem", "icon": "mdi:alert"},
     {"key": "clean_filter", "device_class": "problem", "icon": "mdi:alert"},
     {"key": "service_requested", "device_class": "problem", "icon": "mdi:alert"},

@@ -120,16 +120,23 @@ SOFTBOOST_BINARY_SENSOR_ENTITIES = [
     {"key": "softboost_active", "icon": "mdi:fan-clock"},
 ]
 
-try:
-    from .config import MODEL_VALLOX_DIGIT_SE as _DIGIT_SE_MODEL
-except ImportError:
-    from constants.config import MODEL_VALLOX_DIGIT_SE as _DIGIT_SE_MODEL
+###### Emulated native boost (Vallox Digit SE)
+
+# The Digit SE mainboard does not act on the native bus boost trigger
+# (register 0x71 bit 5 - verified on a real unit), so for this model the
+# "Stoßlüftung aktivieren" switch emulates the boost locally, reusing the
+# Softboost controller with fixed settings. Behaviour per the official Vallox
+# Digit SE documentation: boost switches the fan speed to the maximum level
+# for 45 minutes; fireplace mode ("Kaminmodus") additionally stops the
+# exhaust fan (register 0x08 bit 5) for the first 15 minutes.
+BOOST_STORAGE_KEY_SUFFIX = "boost"
+BOOST_DEFAULT_LEVEL = 8
+BOOST_DEFAULT_DURATION = 45 * 60
 
 SOFTBOOST_SWITCH_ENTITIES = [
-    # Fireplace mode switches the exhaust fan off via register 0x08 bit 5,
-    # which is a read-only status on the Digit SE. Fireplace boost is available
-    # there through the native activate_boost switch + boost_mode select.
-    {"key": "softboost_fireplace_mode", "icon": "mdi:fire", "exclude_models": [_DIGIT_SE_MODEL]},
+    # Fireplace mode switches the exhaust fan off via register 0x08 bit 5.
+    # Verified writable on the Digit SE as well (see constants/bus.py).
+    {"key": "softboost_fireplace_mode", "icon": "mdi:fire"},
 ]
 
 SOFTBOOST_BUTTON_ENTITIES = [

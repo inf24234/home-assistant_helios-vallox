@@ -71,8 +71,22 @@ class SoftBoostState:
 
 
 class SoftBoostController:
-    """Controller for the YAML-free Soft Remote Control boost logic."""
-    def __init__(self, hass: HomeAssistant, entry_id: str, coordinator) -> None:
+    """Controller for the YAML-free Soft Remote Control boost logic.
+
+    The same controller also emulates the native boost ("Stoßlüftung") on
+    device models whose mainboard does not implement the native bus boost
+    trigger (Vallox Digit SE): a second instance with a separate storage key
+    and fixed settings (max fan speed for 45 minutes, fireplace mode stops
+    the exhaust fan for the first 15 minutes) drives the activate_boost
+    switch, the boost_status indicator and the boost_remaining sensor.
+    """
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry_id: str,
+        coordinator,
+        storage_key_suffix: str = SOFTBOOST_STORAGE_KEY_SUFFIX,
+    ) -> None:
         """Initialize controller for one config entry / ventilation device."""
         self.hass = hass
         self.entry_id = entry_id
@@ -80,7 +94,7 @@ class SoftBoostController:
         self._store: Store[dict[str, Any]] = Store(
             hass,
             SOFTBOOST_STORAGE_VERSION,
-            f"{DOMAIN}.{SOFTBOOST_STORAGE_KEY_SUFFIX}.{entry_id}",
+            f"{DOMAIN}.{storage_key_suffix}.{entry_id}",
         )
         self._state = SoftBoostState()
         self._listeners: list[Callable[[], None]] = []

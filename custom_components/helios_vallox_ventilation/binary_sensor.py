@@ -17,6 +17,7 @@ from .constants import (
     BINARY_SENSOR_ENTITIES,
     DOMAIN,
     INTERNAL_BINARY_SENSOR_KEYS,
+    MODEL_VALLOX_DIGIT_SE,
     SOFTBOOST_BINARY_SENSOR_ENTITIES,
     filter_entities_for_model,
 )
@@ -51,6 +52,11 @@ async def async_setup_entry(
         HeliosSoftBoostBinarySensor(coordinator, entry, sensor_def)
         for sensor_def in SOFTBOOST_BINARY_SENSOR_ENTITIES
     )
+
+    # Digit SE: register 0x71 bit 6 is not a live boost status on this model;
+    # show the emulated boost state instead.
+    if model == MODEL_VALLOX_DIGIT_SE:
+        entities.append(HeliosBoostBinarySensor(coordinator, entry))
 
     async_add_entities(entities)
 
@@ -183,6 +189,56 @@ class HeliosBinarySensor(
         return bool(
             self.coordinator.data.get(self._variable)
         )
+
+
+class HeliosBoostBinarySensor(
+    CoordinatorEntity,
+    BinarySensorEntity,
+):
+    """Digit SE: emulated boost status ("Indikator: Stoßlüftung aktiv").
+
+    Replaces the native register 0x71 bit 6, which is not a live status on
+    the Digit SE (stays static even when no boost is running).
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator.coordinator)
+
+        self._coordinator = coordinator
+        self._entry = entry
+
+        self._attr_translation_key = "boost_status"
+        self._attr_unique_id = f"{entry.entry_id}_boost_status"
+        self.entity_id = build_entity_id(
+            "binary_sensor",
+            entry,
+            "boost_status",
+        )
+        self._attr_icon = "mdi:tooltip-question"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information."""
+        return build_device_info(self._entry)
+
+    async def async_added_to_hass(self) -> None:
+        """Register for emulated boost state updates."""
+        await super().async_added_to_hass()
+
+        boost = getattr(self._coordinator, "boost", None)
+        if boost is not None:
+            self.async_on_remove(
+                boost.async_add_listener(self.schedule_update_ha_state)
+            )
+
+    @property
+    def is_on(self):
+        """Return the emulated boost state."""
+        boost = getattr(self._coordinator, "boost", None)
+        return bool(boost is not None and boost.is_active)
 
 
 class HeliosSoftBoostBinarySensor(
