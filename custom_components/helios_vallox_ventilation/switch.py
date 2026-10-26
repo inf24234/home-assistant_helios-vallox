@@ -88,8 +88,9 @@ class HeliosBoostSwitch(CoordinatorEntity, SwitchEntity):
 
     The Digit SE mainboard does not act on the native bus boost trigger
     (register 0x71 bit 5), so this switch drives the emulated boost
-    controller (fixed: max fan speed for 45 minutes; fireplace mode stops
-    the exhaust fan for the first 15 minutes) via the coordinator.
+    controller (fixed: max fan speed for 45 minutes) via the coordinator.
+    Only the normal boost is emulated - the fireplace function (exhaust fan
+    off via 0x08 bit 5) is not effective on this model and is not offered.
     """
 
     _attr_has_entity_name = True

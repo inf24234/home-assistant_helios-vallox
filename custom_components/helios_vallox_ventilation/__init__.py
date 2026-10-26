@@ -269,9 +269,9 @@ async def async_setup_entry(
     # Emulated native boost ("Stoßlüftung") for device models whose mainboard
     # does not implement the native bus boost trigger (Vallox Digit SE).
     # Fixed settings per the official Vallox Digit SE documentation: maximum
-    # fan speed for 45 minutes; fireplace mode stops the exhaust fan (0x08
-    # bit 5) for the first 15 minutes. The boost_mode select mirrors the
-    # fireplace setting into this controller.
+    # fan speed for 45 minutes. Only the normal boost is emulated: the
+    # fireplace function (exhaust fan off via 0x08 bit 5) is not effective on
+    # this model and is not offered (see constants/bus.py).
     boost = SoftBoostController(
         hass,
         entry.entry_id,

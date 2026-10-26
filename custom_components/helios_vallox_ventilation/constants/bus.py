@@ -236,8 +236,9 @@ DIGIT_SE_REGISTERS_AND_COILS = {
     # boost, no status bit 6, no countdown in 0x79, in either boost mode and
     # with every bus addressing variant. For this model the integration
     # therefore emulates the boost locally (timed fan speed 8 for 45 min per
-    # the Vallox Digit SE documentation; fireplace mode stops the exhaust fan
-    # via 0x08 bit 5 for the first 15 min) - see coordinator.py/softboost.py.
+    # the Vallox Digit SE documentation) - see coordinator.py/softboost.py.
+    # The fireplace function (exhaust fan off) is NOT emulated: 0x08 bit 5 is
+    # not acted upon on this model (see the 0x08 notes below).
     "activate_boost":          {"varid": 0x71, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': True },
     # Native boost status bit. Not a live status on the Digit SE (stays static,
     # e.g. stuck at 1 with 0x79 frozen) - the integration shows the emulated
@@ -253,16 +254,21 @@ DIGIT_SE_REGISTERS_AND_COILS = {
     # summer mode on this device. The Digit SE does not report fan-running
     # or front-heating status in this register (bits 3/4/5 read 0 even
     # while the fans are running) - the fan running states are derived
-    # from powerstate + fanspeed instead (see api.py). Bit 5 is the exception:
-    # it is the writable exhaust-fan-off flag (fireplace function, see below).
+    # from powerstate + fanspeed instead (see api.py).
     "summer_mode":             {"varid": 0x08, 'type': 'bit',         'bitposition':  1, 'read': True, 'write': False},
     "fault_relay":             {"varid": 0x08, 'type': 'bit',         'bitposition':  2, 'read': True, 'write': False},
-    # Exhaust air ventilator off; set to 1 to switch off (fireplace function:
-    # "Kamintastschalter-Funktion stoppt den Abluftventilator für 15 Minuten"
-    # per the Vallox Digit SE technical manual). Verified writable on a real
-    # Digit SE: writing 0x20 twice reads back 0x21, restoring 0x00 reads back
-    # 0x01. The Helios register doc notes the bit "requires to be set twice".
-    "output_fan_off":          {"varid": 0x08, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': True },
+    # Exhaust air ventilator off (fireplace function: "Kamintastschalter-
+    # Funktion stoppt den Abluftventilator für 15 Minuten" per the Vallox
+    # Digit SE technical manual). NOT effective on the Digit SE: the write is
+    # accepted and stored (verified on a real unit: writing 0x20 reads back
+    # 0x21), but the mainboard does not act on it - the exhaust fan keeps
+    # running while bit 5 is set (verified on a real unit; both fans stop
+    # only together with the unit's power state, 0xA3 bit 0). The fireplace
+    # function is only available via the external Kamin-/Stoßlüftungstastschalter
+    # wired at the unit's terminal block (see the Vallox manual), not via
+    # RS485. Kept read-only here; the integration hides the fireplace-related
+    # entities (boost_mode select, Softboost fireplace mode) on this model.
+    "output_fan_off":          {"varid": 0x08, 'type': 'bit',         'bitposition':  5, 'read': True, 'write': False },
     # External fireplace/boost switch active
     "external_boost_switch":   {"varid": 0x08, 'type': 'bit',         'bitposition':  6, 'read': True, 'write': False},
     # Service reminder interval in months (used after reset of service reminder)

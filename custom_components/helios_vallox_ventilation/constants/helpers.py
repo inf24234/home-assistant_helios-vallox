@@ -1,5 +1,14 @@
 ###### Model-dependent entity filtering
 
+try:
+    from .config import MODEL_VALLOX_DIGIT_SE
+except ImportError:
+    from constants.config import MODEL_VALLOX_DIGIT_SE
+
+# Convenience alias for the model filter keys below.
+_DIGIT_SE = MODEL_VALLOX_DIGIT_SE
+
+
 def filter_entities_for_model(entities, model):
     """Return the entity definitions applicable to a device model.
 
@@ -127,16 +136,21 @@ SOFTBOOST_BINARY_SENSOR_ENTITIES = [
 # "Stoßlüftung aktivieren" switch emulates the boost locally, reusing the
 # Softboost controller with fixed settings. Behaviour per the official Vallox
 # Digit SE documentation: boost switches the fan speed to the maximum level
-# for 45 minutes; fireplace mode ("Kaminmodus") additionally stops the
-# exhaust fan (register 0x08 bit 5) for the first 15 minutes.
+# for 45 minutes. The fireplace function ("Kaminmodus", exhaust fan off for
+# 15 minutes) is NOT emulated: register 0x08 bit 5 is accepted but not acted
+# upon on this model (verified on a real unit - the exhaust fan keeps
+# running), and per the Vallox manual the fireplace function is only
+# available via the external Kamin-/Stoßlüftungstastschalter wired at the
+# unit's terminal block, not via RS485.
 BOOST_STORAGE_KEY_SUFFIX = "boost"
 BOOST_DEFAULT_LEVEL = 8
 BOOST_DEFAULT_DURATION = 45 * 60
 
 SOFTBOOST_SWITCH_ENTITIES = [
     # Fireplace mode switches the exhaust fan off via register 0x08 bit 5.
-    # Verified writable on the Digit SE as well (see constants/bus.py).
-    {"key": "softboost_fireplace_mode", "icon": "mdi:fire"},
+    # Hidden on the Digit SE: that write is stored but not acted upon there
+    # (see constants/bus.py), so the fireplace function is unavailable.
+    {"key": "softboost_fireplace_mode", "icon": "mdi:fire", "exclude_models": [_DIGIT_SE]},
 ]
 
 SOFTBOOST_BUTTON_ENTITIES = [

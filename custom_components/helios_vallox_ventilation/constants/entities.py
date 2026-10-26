@@ -122,7 +122,11 @@ SWITCH_ENTITIES = [
     {"key": "output_fan_off", "icon": "mdi:fan-off", "entity_category": "config", "exclude_models": [_DIGIT_SE] },
 ]
 SELECT_ENTITIES = [
-    {"key": "boost_mode", "icon": "mdi:fan-speed-2", "options": {1: "normal", 0: "fireplace"}, "entity_category": "config" },
+    # Hidden on the Digit SE: the native boost/fireplace trigger is not
+    # implemented on that model (see constants/bus.py), and the locally
+    # emulated boost always runs in normal mode - the fireplace function
+    # (exhaust fan off) is only available via the external hardware switch.
+    {"key": "boost_mode", "icon": "mdi:fan-speed-2", "options": {1: "normal", 0: "fireplace"}, "entity_category": "config", "exclude_models": [_DIGIT_SE] },
     # On the Digit SE this is the writable heating mode (winter = heat recovery on)
     {"key": "winter_mode", "icon": "mdi:snowflake-thermometer", "options": {0: "summer", 1: "winter"}, "model_overrides": {_DIGIT_SE: {"description": "Operating mode: winter = heat exchanger active, summer = bypass"}} },
     {"key": "humidity_control_mode", "icon": "mdi:water-percent", "options": {0: "manual", 1: "automatic"}, "entity_category": "config", "exclude_models": [_DIGIT_SE] },

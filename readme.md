@@ -137,14 +137,23 @@ minutes, which showed a misleading "boost active" indicator with a frozen
 remaining time). For this model the integration emulates the boost locally,
 exactly per the official Vallox Digit SE documentation: the `activate_boost`
 switch ("Stoßlüftung aktivieren") runs the fans at maximum speed (level 8) for
-45 minutes and then restores the previous fan speed; in fireplace mode
-("Kaminmodus", `boost_mode` select) the exhaust fan is additionally stopped
-via `0x08` bit 5 for the first 15 minutes (creating overpressure for the
-fireplace). The `boost_status` indicator and the `boost_remaining` sensor show
-the emulated state and remaining time. The exhaust-fan-off register `0x08`
-bit 5 is writable on the Digit SE (verified on a real unit), so Softboost
-fireplace mode is available on this model as well. Other models keep using
-the native bus trigger unchanged.
+45 minutes and then restores the previous fan speed. The `boost_status`
+indicator and the `boost_remaining` sensor show the emulated state and
+remaining time.
+
+The fireplace function ("Kaminmodus", exhaust fan stopped for 15 minutes to
+create overpressure for a fireplace) is **not available via RS485** on the
+Digit SE: the exhaust-fan-off flag (`0x08` bit 5) is accepted and stored by
+the mainboard but not acted upon (verified on a real unit - the exhaust fan
+keeps running while the bit is set; both fans stop only together with the
+unit's power state, `0xA3` bit 0). Per the Vallox Digit SE manual
+(`DIGIT_SE__TECHNIK`), the fireplace/boost function is provided by an
+external **Kamin-/Stoßlüftungstastschalter** (rocker switch) wired at the
+unit's terminal block - that hardware input is the intended way to use the
+fireplace function on this model. Accordingly, the `boost_mode` select
+(normal/fireplace) and the Softboost fireplace mode are hidden for the
+Digit SE, and the emulated boost always runs in normal mode. Other models
+keep using the native bus trigger unchanged.
 
 ## ⚙️ Compatible / tested ser2net adapters
 

@@ -76,9 +76,12 @@ class SoftBoostController:
     The same controller also emulates the native boost ("Stoßlüftung") on
     device models whose mainboard does not implement the native bus boost
     trigger (Vallox Digit SE): a second instance with a separate storage key
-    and fixed settings (max fan speed for 45 minutes, fireplace mode stops
-    the exhaust fan for the first 15 minutes) drives the activate_boost
-    switch, the boost_status indicator and the boost_remaining sensor.
+    and fixed settings (max fan speed for 45 minutes) drives the
+    activate_boost switch, the boost_status indicator and the
+    boost_remaining sensor. Only the normal boost is emulated there - the
+    fireplace function (exhaust fan off) is not available via the bus on the
+    Digit SE (register 0x08 bit 5 is not acted upon), so fireplace mode is
+    not offered for that model.
     """
     def __init__(
         self,
@@ -203,6 +206,8 @@ class SoftBoostController:
                 "(output fan cannot be switched off); running normal Softboost."
             )
             fireplace_mode = False
+            # Keep the persisted state honest: no fireplace run is active.
+            self._state.fireplace_mode = False
         if fireplace_mode:
             if not await self._async_write_value("output_fan_off", 1, 0, 1):
                 _LOGGER.warning(

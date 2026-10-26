@@ -11,7 +11,6 @@ from homeassistant.util import slugify
 from .device_info import build_device_info, build_entity_id, get_device_model, get_entity_prefix
 from .constants import (
     DOMAIN,
-    MODEL_VALLOX_DIGIT_SE,
     SELECT_ENTITIES,
     RH_SELECT_KEYS,
     LOVELACE_DEVICE_SELECT_KEY,
@@ -223,15 +222,4 @@ class HeliosSelect(CoordinatorEntity, SelectEntity):
         await self.hass.async_add_executor_job(
             self._coordinator.write_value, self._variable, value
         )
-        # Digit SE: mirror the boost/fireplace mode into the emulated boost
-        # (select value 0 = fireplace, 1 = normal boost). The bus write above
-        # still updates the switch-type setting (0xAA bit 5) on the unit.
-        if (
-            self._variable == "boost_mode"
-            and get_device_model(self._entry) == MODEL_VALLOX_DIGIT_SE
-        ):
-            boost = getattr(self._coordinator, "boost", None)
-            if boost is not None:
-                boost.state.fireplace_mode = int(value) == 0
-                await boost.async_save()
         self.async_write_ha_state()

@@ -414,7 +414,9 @@ class HeliosCoordinator:
         The Vallox Digit SE mainboard stores writes to the native boost
         trigger (register 0x71 bit 5) but never acts on them (verified on a
         real unit), so for this model the boost is emulated with a timed
-        fan-speed write instead of the bus command.
+        fan-speed write instead of the bus command. Only the normal boost is
+        emulated - the fireplace function (exhaust fan off via 0x08 bit 5) is
+        not effective on this model and is not offered.
         """
         return (
             self._model == MODEL_VALLOX_DIGIT_SE
