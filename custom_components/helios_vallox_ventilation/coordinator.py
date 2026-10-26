@@ -8,6 +8,7 @@ from typing import Any, override
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -130,6 +131,21 @@ class HeliosCoordinator:
     async def setup_coordinator(self) -> None:
         """Perform the initial full read."""
         await asyncio.sleep(5)
+
+        # Fail fast when the bus is unreachable: a full readAllValues() retries
+        # every register for ~10 s each, which blocks the Home Assistant
+        # bootstrap for several minutes until the setup is cancelled and the
+        # config entry is left stuck in "initializing". A single-register probe
+        # turns a dead bus into a normal ConfigEntryNotReady retry cycle.
+        probe = await self._hass.async_add_executor_job(
+            self._helios.readSingleValue,
+            "fanspeed",
+        )
+        if not probe or probe.get("fanspeed") is None:
+            raise ConfigEntryNotReady(
+                f"Ventilation unit not reachable via {self._connection}"
+            )
+
         await self._coordinator.async_config_entry_first_refresh()
 
     async def _async_update_data(self) -> dict[str, Any]:
