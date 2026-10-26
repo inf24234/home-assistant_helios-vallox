@@ -143,8 +143,7 @@ class SoftBoostController:
                 "Cleaning up without restoring previous fan speed."
             )
             # output_fan_off = 0 is the safe normal state after restart.
-            # (Not writable on models like the Vallox Digit SE, where
-            # register 0x08 bit 5 is a read-only fan status.)
+            # (Skipped on models where register 0x08 bit 5 is not writable.)
             if self._supports_output_fan_off():
                 await self._async_write_value("output_fan_off", 0, 0, 1)
             self.mark_stopped()
@@ -196,9 +195,8 @@ class SoftBoostController:
         duration_seconds = self._clamp(self._state.duration_seconds, 15 * 60, 90 * 60,)
         fireplace_mode = bool(self._state.fireplace_mode)
         # Fireplace mode: temporarily switch off output fan before changing level.
-        # On models where register 0x08 bit 5 is read-only (e.g. Vallox Digit SE),
-        # fireplace boost is done by the unit itself via the native boost/fireplace
-        # switch (activate_boost + boost_mode); Softboost then only sets the level.
+        # On models where register 0x08 bit 5 is not writable, fireplace mode
+        # is unavailable; Softboost then only sets the level.
         if fireplace_mode and not self._supports_output_fan_off():
             _LOGGER.warning(
                 "Fireplace mode is not available for this device model "
@@ -271,7 +269,7 @@ class SoftBoostController:
         # Safety fallback: always make sure output fan is enabled again.
         # Important: do this after the fanspeed restore, not before it.
         # Skipped on models where the output fan cannot be switched off
-        # (e.g. Vallox Digit SE: register 0x08 bit 5 is read-only there).
+        # (register 0x08 bit 5 not writable).
         output_fan_restored = None
         if self._supports_output_fan_off():
             output_fan_restored = await self._async_write_value("output_fan_off", 0, 0, 1)
